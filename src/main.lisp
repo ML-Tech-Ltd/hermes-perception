@@ -237,7 +237,7 @@
 (defparameter *howmany* 100)
 ;; (get-data :EUR_USD (get-rates :EUR_USD 1 :M5))
 (defun get-data (instrument rates &key (levels '(0.382 0.5 0.618 1 1.618)))
-  (let* ((partition-size 30)
+  (let* ((partition-size 20)
          (sample-size (- (length rates)
                          partition-size))
          
