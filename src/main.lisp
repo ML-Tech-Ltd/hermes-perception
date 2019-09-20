@@ -234,7 +234,7 @@
   #H(:y (map (lm (elt) (car elt)) alist)
      :z (map (lm (elt) (cdr elt)) alist)))
 
-(defparameter *howmany* 100)
+(defparameter *ratio* 1/5)
 ;; (get-data :EUR_USD (get-rates :EUR_USD 1 :M5))
 (defun get-data (instrument rates &key (levels '(0.382 0.5 0.618 1 1.618)))
   (let* ((partition-size 20)
@@ -247,7 +247,7 @@
          ;; (area-position (expt 10 -3))
          (area-position (gethash *area-positions* instrument))
          
-         (howmany *howmany*))
+         (ratio *ratio*))
     (correct-heats
      (let ((res (map (lm (fibs rate)
                        (let ((ht (make-hash-table :test 'equal)))
@@ -273,13 +273,8 @@
                               )
                             )
                           (pmapcar #'diffs (ts-partition partition-size rates))
-                          ;; (let ((diffs (pmapcar #'diffs (ts-partition partition-size rates))))
-                          ;;   (subseq diffs (- (length diffs) howmany)))
                           )
                      (subseq rates (- partition-size 1))
-                     ;; (subseq rates (- (length rates) howmany))
                      )))
-       (subseq res (- (length res) howmany))
-       ;; res
-       )
+       (subseq res (- (length res) (round (* (length res) *ratio*)))))
      area-position)))
