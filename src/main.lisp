@@ -235,6 +235,7 @@
      :z (map (lm (elt) (cdr elt)) alist)))
 
 (defparameter *ratio* 1/5)
+(defparameter *howmany* 20)
 ;; (get-data :EUR_USD (get-rates :EUR_USD 1 :M5))
 (defun get-data (instrument rates &key (levels '(0.382 0.5 0.618 1 1.618)))
   (let* ((partition-size 20)
@@ -276,5 +277,6 @@
                           )
                      (subseq rates (- partition-size 1))
                      )))
-       (subseq res (- (length res) (round (* (length res) *ratio*)))))
+       ;; (subseq res (- (length res) (round (* (length res) *ratio*))))
+       (subseq res (- (length res) *howmany*)))
      area-position)))
