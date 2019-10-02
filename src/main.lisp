@@ -3,7 +3,10 @@
   (:use :cl21
 	:lparallel
 	:overmind-input)
-  (:export :get-data))
+  (:export :get-data
+	   :*data-count*
+	   :*partition-size*)
+  (:nicknames :omper))
 (in-package :overmind-perception)
 
 (defparameter *area-positions*
@@ -184,18 +187,9 @@
   (sort (flatten (map (lm (diff)
                         (let ((price (first diff))
                               (delta (rest diff)))
-                          ;; (list (+ price (* delta 0.382))
-                          ;;       (+ price (* delta 0.618))
-                          ;;       (+ price (* delta 1.000))
-                          ;;       (+ price (* delta 1.618))
-                          ;;       )
                           (map (lm (level)
                                  (+ price (* delta level)))
                                levels)
-                          ;; (list (+ price (* delta (nth levels 0)))
-                          ;;       (+ price (* delta (nth levels 1)))
-                          ;;       (+ price (* delta (nth levels 2)))
-                          ;;       (+ price (* delta (nth levels 3))))
                           ))
                       diffs))
         #'>))
@@ -234,11 +228,12 @@
   #H(:y (map (lm (elt) (car elt)) alist)
      :z (map (lm (elt) (cdr elt)) alist)))
 
-(defparameter *ratio* 1/5)
-(defparameter *howmany* 20)
+;; (defparameter *ratio* 1/5)
+(defparameter *data-count* 30)
+(defparameter *partition-size* 20)
 ;; (get-data :EUR_USD (get-rates :EUR_USD 1 :M5))
 (defun get-data (instrument rates &key (levels '(0.382 0.5 0.618 1 1.618)))
-  (let* ((partition-size 20)
+  (let* ((partition-size *partition-size*)
          (sample-size (- (length rates)
                          partition-size))
          
@@ -278,5 +273,5 @@
                      (subseq rates (- partition-size 1))
                      )))
        ;; (subseq res (- (length res) (round (* (length res) *ratio*))))
-       (subseq res (- (length res) *howmany*)))
+       (subseq res (- (length res) *data-count*)))
      area-position)))
