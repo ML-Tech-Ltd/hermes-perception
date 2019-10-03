@@ -243,7 +243,8 @@
          ;; (area-position (expt 10 -3))
          (area-position (gethash *area-positions* instrument))
          
-         (ratio *ratio*))
+         ;; (ratio *ratio*)
+         )
     (correct-heats
      (let ((res (map (lm (fibs rate)
                        (let ((ht (make-hash-table :test 'equal)))
