@@ -4,6 +4,7 @@
   :license ""
   :depends-on (:cl21
 	       :lparallel
+	       :memoize
 	       :overmind-input)
   :components ((:module "src"
                 :components

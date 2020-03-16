@@ -155,7 +155,7 @@
 
     ;; transforming the heat hash-tables to alists and ordering them
     (map (lm (ht)
-             (setf (gethash ht :heat) (split-heatmap-y-z (sort-by-price (gethash ht :heat)))))
+	   (setf (gethash ht :heat) (split-heatmap-y-z (sort-by-price (gethash ht :heat)))))
          ht-data)
     ht-data))
 
@@ -217,11 +217,11 @@
            (setf (gethash ht (* price area-position)) 0)
            )
          (iota n :start min-area :step 1))
-    (map (lm (fib)
+    (map (lm (fib weight)
            (if (gethash ht (* (floor fib area-position) area-position))
-               (incf (gethash ht (* (floor fib area-position) area-position))))
-           )
-         fibos)
+               (incf (gethash ht (* (floor fib area-position) area-position)) (float (/ 1 weight)))))
+         fibos
+	 (iota (length fibos) :start (length fibos) :step -1))
     ht))
 
 (defun split-heatmap-y-z (alist)
@@ -275,5 +275,8 @@
                      (subseq rates (- partition-size 1))
                      )))
        ;; (subseq res (- (length res) (round (* (length res) *ratio*))))
-       (subseq res (- (length res) *data-count*)))
+       ;; (subseq res (- (length res) *data-count*))
+       (cl:last res *data-count*)
+       )
      area-position)))
+;; (org.tfeb.hax.memoize:memoize-function 'get-data)
