@@ -276,7 +276,8 @@
                      )))
        ;; (subseq res (- (length res) (round (* (length res) *ratio*))))
        ;; (subseq res (- (length res) *data-count*))
-       (cl:last res *data-count*)
+       ;; (cl:last res *data-count*)
+       res
        )
      area-position)))
-;; (org.tfeb.hax.memoize:memoize-function 'get-data)
+(org.tfeb.hax.memoize:memoize-function 'get-data)
