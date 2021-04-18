@@ -1,11 +1,10 @@
-(defsystem "overmind-perception"
+(defsystem "hermes-perception"
   :version "0.1.0"
   :author ""
   :license ""
-  :depends-on (:cl21
-	       :lparallel
-	       :memoize
-	       :overmind-input)
+  :depends-on (:alexandria
+	       :defenum
+	       :hermes-input)
   :components ((:module "src"
                 :components
                 ((:file "main"))))
@@ -13,16 +12,16 @@
   :long-description
   #.(read-file-string
      (subpathname *load-pathname* "README.markdown"))
-  :in-order-to ((test-op (test-op "overmind-perception/tests"))))
+  :in-order-to ((test-op (test-op "hermes-perception/tests"))))
 
-(defsystem "overmind-perception/tests"
+(defsystem "hermes-perception/tests"
   :author ""
   :license ""
-  :depends-on ("overmind-perception"
+  :depends-on ("hermes-perception"
                "rove")
   :components ((:module "tests"
                 :components
                 ((:file "main"))))
-  :description "Test system for overmind-perception"
+  :description "Test system for hermes-perception"
 
   :perform (test-op (op c) (symbol-call :rove :run c)))

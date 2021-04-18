@@ -1,283 +1,241 @@
-(cl21:in-package :cl21-user)
-(defpackage overmind-perception
-  (:use :cl21
-	:lparallel
-	:overmind-input)
-  (:export :get-data
-	   :*data-count*
-	   :*partition-size*)
+;; (ql:quickload :hermes-perception)
+(defpackage hermes-perception
+  (:use :cl :alexandria)
+  (:import-from #:defenum
+		#:defenum)
+  (:import-from #:omcom.utils
+		#:random-int)
+  (:export #:=>diff-close
+	   #:=>diff-close-frac
+	   #:=>sma-close
+	   #:=>sma-close-strategy-1
+	   #:=>sma-close-strategy-2
+	   #:=>wma-close
+	   #:=>close
+	   #:=>ema-close
+	   #:=>macd-close
+	   #:=>rsi-close
+	   #:=>high-height
+	   #:=>low-height
+	   #:=>candle-height
+	   #:gen-random-perceptions
+	   #:gen-perception-fn
+	   )
   (:nicknames :omper))
-(in-package :overmind-perception)
+(in-package :hermes-perception)
 
-(defparameter *area-positions*
-  #H(:AUD_CAD (expt 10 -3)
-     :AUD_CHF (expt 10 -3)
-     :AUD_HKD (expt 10 -2)
-     :AUD_JPY (expt 10 -1)
-     :AUD_NZD (expt 10 -3)
-     :AUD_SGD (expt 10 -3)
-     :AUD_USD (expt 10 -3)
-     :CAD_CHF (expt 10 -3)
-     :CAD_HKD (expt 10 -2)
-     :CAD_JPY (expt 10 -1)
-     :CAD_SGD (expt 10 -3)
-     :CHF_HKD (expt 10 -2)
-     :CHF_JPY (expt 10 -1)
-     :CHF_ZAR (expt 10 -1)
-     :EUR_AUD (expt 10 -3)
-     :EUR_CAD (expt 10 -3)
-     :EUR_CHF (expt 10 -3)
-     :EUR_CZK (expt 10 -2)
-     :EUR_DKK (expt 10 -3)
-     :EUR_GBP (expt 10 -3)
-     :EUR_HKD (expt 10 -2)
-     :EUR_HUF (expt 10 -0)
-     :EUR_JPY (expt 10 -1)
-     :EUR_NOK (expt 10 -2)
-     :EUR_NZD (expt 10 -3)
-     :EUR_PLN (expt 10 -2)
-     :EUR_SEK (expt 10 -2)
-     :EUR_SGD (expt 10 -3)
-     :EUR_TRY (expt 10 -2)
-     :EUR_USD (expt 10 -3)
-     :EUR_ZAR (expt 10 -1)
-     :GBP_AUD (expt 10 -3)
-     :GBP_CAD (expt 10 -3)
-     :GBP_CHF (expt 10 -3)
-     :GBP_HKD (expt 10 -2)
-     :GBP_JPY (expt 10 -1)
-     :GBP_NZD (expt 10 -3)
-     :GBP_PLN (expt 10 -2)
-     :GBP_SGD (expt 10 -3)
-     :GBP_USD (expt 10 -3)
-     :GBP_ZAR (expt 10 -1)
-     :HKD_JPY (expt 10 -2)
-     :NZD_CAD (expt 10 -3)
-     :NZD_CHF (expt 10 -3)
-     :NZD_HKD (expt 10 -2)
-     :NZD_JPY (expt 10 -1)
-     :NZD_SGD (expt 10 -3)
-     :NZD_USD (expt 10 -3)
-     :SGD_CHF (expt 10 -3)
-     :SGD_HKD (expt 10 -2)
-     :SGD_JPY (expt 10 -1)
-     :TRY_JPY (expt 10 -1)
-     :USD_CAD (expt 10 -3)
-     :USD_CHF (expt 10 -3)
-     :USD_CNH (expt 10 -2)
-     :USD_CZK (expt 10 -1)
-     :USD_DKK (expt 10 -2)
-     :USD_HKD (expt 10 -3)
-     :USD_HUF (expt 10 -0)
-     :USD_INR (expt 10 -1)
-     :USD_JPY (expt 10 -1)
-     :USD_MXN (expt 10 -1)
-     :USD_NOK (expt 10 -2)
-     :USD_PLN (expt 10 -2)
-     :USD_SAR (expt 10 -3)
-     :USD_SEK (expt 10 -2)
-     :USD_SGD (expt 10 -3)
-     :USD_THB (expt 10 -1)
-     :USD_TRY (expt 10 -2)
-     :USD_ZAR (expt 10 -1)
-     :ZAR_JPY (expt 10 -1)
+(defun =>diff-close (rates offset)
+  (let* ((lrates (length rates))
+	 (last-candle (nth (- lrates offset 1) rates))
+	 (penultimate-candle (nth (- lrates (1+ offset) 1) rates)))
+    (- (ominp.rates:->close last-candle)
+       (ominp.rates:->close penultimate-candle))))
+;; (->diff-close *rates* 0)
 
-     ;; indices
-     :AU200_AUD (expt 10 1)
-     :CN50_USD (expt 10 2)
-     :EU50_EUR (expt 10 1)
-     :FR40_EUR (expt 10 1)
-     :DE30_EUR (expt 10 2)
-     :HK33_HKD (expt 10 2)
-     :IN50_USD (expt 10 2)
-     :JP225_USD (expt 10 2)
-     :NL25_EUR (expt 10 1)
-     :SG30_SGD (expt 10 0)
-     :TWIX_USD (expt 10 0)
-     :UK100_GBP (expt 10 1)
-     :NAS100_USD (expt 10 2)
-     :US2000_USD (expt 10 1)
-     :SPX500_USD (expt 10 1)
-     :US30_USD (expt 10 2)
+(defun =>diff-close-frac (rates offset)
+  (ominp.rates:->close-frac (nth (- (length rates) offset 1) rates)))
+;; (=>diff-close-frac *rates* 10)
 
-     ;; commodities
-     :BCO_USD (expt 10 0)
-     :XCU_USD (expt 10 -2)
-     :CORN_USD (expt 10 -2)
-     :NATGAS_USD (expt 10 -1)
-     :SOYBN_USD (expt 10 -2)
-     :SUGAR_USD (expt 10 -3)
-     :WTICO_USD (expt 10 0)
-     :WHEAT_USD (expt 10 -2)
+(defun =>sma-close (rates offset n)
+  (/ (loop for i below n
+	   summing (=>diff-close-frac rates (+ i offset)))
+     n))
 
-     ;; bonds
-     :DE10YB_EUR (expt 10 -1)
-     :UK10YB_GBP (expt 10 -1)
-     :USB10Y_USD (expt 10 -1)
-     :USB02Y_USD (expt 10 -1)
-     :USB05Y_USD (expt 10 -1)
-     :USB30Y_USD (expt 10 -1)
-     
-     ;; metals
-     :XAU_USD (expt 10 0)
-     :XAU_XAG (expt 10 -1)
-     :XPD_USD (expt 10 1)
-     :XPT_USD (expt 10 1)
-     :XAG_USD (expt 10 -1)
+(defun =>sma-close-strategy-1 (rates offset n)
+  (let ((close-0 (=>diff-close-frac rates offset))
+	(close-1 (=>diff-close-frac rates (1+ offset)))
+	(sma (=>sma-close rates offset n)))
+    (if (or (and (< close-0 sma)
+		 (> close-1 sma))
+	    (and (> close-0 sma)
+		 (< close-1 sma)))
+	(- sma close-0)
+	0)))
+(defun =>sma-close-strategy-2 (rates offset n-short-sma n-long-sma)
+  (let ((short-sma-0 (=>sma-close rates offset (min n-short-sma n-long-sma)))
+	(short-sma-1 (=>sma-close rates (1+ offset) (min n-short-sma n-long-sma)))
+	(long-sma (=>sma-close rates offset (max n-short-sma n-long-sma))))
+    (if (or (and (< short-sma-0 long-sma)
+		 (> short-sma-1 long-sma))
+	    (and (> short-sma-0 long-sma)
+		 (< short-sma-1 long-sma)))
+	(- short-sma-0 long-sma)
+	0)))
+(defun =>wma-close (rates offset n)
+  (/ (loop
+       for i below n
+       for j from n above 0
+       summing (* j (=>diff-close-frac rates (+ i offset))))
+     (* n (1+ n) 1/2)))
+
+(defun =>close (rates offset)
+  (let* ((lrates (length rates)))
+    (rate-close (nth (- lrates offset 1) rates))))
+;; (->close *rates* 0)
+
+(defun =>ema-close (rates offset n-sma n-ema)
+  (let ((smoothing (/ 2 (1+ n-ema)))
+	(ema (=>sma-close rates (+ offset n-ema) n-sma)))
+    (loop for i from (1- n-ema) downto 1
+	  do (setf ema (+ ema (* smoothing (- (=>diff-close-frac rates (+ i offset)) ema)))))
+    ema))
+
+(defun =>macd-close (rates offset n-short-sma n-short-ema n-long-sma n-long-ema n-signal)
+  (let ((last-macd 0)
+	(signal 0))
+    (loop for off from (1- n-signal) downto 0
+	  do (let* ((short-ema (=>ema-close rates (+ off offset) n-short-sma n-short-ema))
+		    (long-ema (=>ema-close rates (+ off offset) n-long-sma n-long-ema))
+		    (macd (- short-ema long-ema)))
+	       (incf signal macd)
+	       (setf last-macd macd)))
+    (- last-macd (/ signal n-signal))))
+
+(defun =>rsi-close (rates offset n)
+  (let ((gain 0)
+	(loss 0))
+    (loop for i from 0 below n
+	  do (let ((delta (=>diff-close-frac rates (+ offset i))))
+	       (if (plusp delta)
+		   (incf gain delta)
+		   (incf loss (abs delta)))))
+    (if (= loss 0)
+	100
+	(let ((rs (/ (/ gain n) (/ loss n))))
+	  (- 100 (/ 100 (1+ rs)))))))
+
+(defun =>high-height (rates offset)
+  (let* ((lrates (length rates))
+	 (last-candle (nth (- lrates offset 1) rates)))
+    (- (rate-high last-candle)
+       (if (> (rate-open last-candle)
+	      (rate-close last-candle))
+	   (rate-open last-candle)
+	   (rate-close last-candle)))))
+
+(defun =>low-height (rates offset)
+  (let* ((lrates (length rates))
+	 (last-candle (nth (- lrates offset 1) rates)))
+    (- (if (> (rate-open last-candle)
+	      (rate-close last-candle))
+	   (rate-close last-candle)
+	   (rate-open last-candle))
+       (rate-low last-candle))))
+
+(defun =>candle-height (rates offset)
+  (let* ((lrates (length rates))
+	 (last-candle (nth (- lrates offset 1) rates)))
+    (abs (- (rate-close last-candle)
+	    (rate-open last-candle)))))
+
+(defenum perceptions
+    (=>sma-close
+     =>sma-close-strategy-1
+     =>sma-close-strategy-2
+     =>wma-close
+     =>ema-close
+     =>rsi-close
+
+     ;; Unused list:
+     =>macd-close
+     =>diff-close-frac
+     =>high-height
+     ->low-height
+     ->candle-height
      ))
 
-(defun correct-heats (ht-data area-position)
-  (let (max-rate min-rate)
-    (map (lm (data)
-             (let ((keys (hash-keys (gethash data :heat)))
-                   mx mn)
-               (setf mx (apply #'max keys))
-               (setf mn (apply #'min keys))
-               (if (or (not max-rate) (> mx max-rate))
-                   (setf max-rate mx))
-               (if (or (not min-rate) (< mn min-rate))
-                   (setf min-rate mn))))
-         ht-data)
-    (map (lm (rate)
-	     (map (lm (ht)
-		      ;; (print (gethash (gethash ht :heat) 1.145))
-		      ;; (print (hash-keys (gethash ht :heat)))
-		      (if (not (gethash (gethash ht :heat) rate nil))
-			  (setf (gethash (gethash ht :heat) rate) 0))
-		      )
-		  ht-data))
-	 (append (map (lm (rate)
-			  (* rate area-position))
-		      (iota (- (/ max-rate area-position)
-			       (/ min-rate area-position))
-			    :start (/ min-rate area-position)))
-		 `(,max-rate)))
+(defun random=>sma-close ()
+  (let ((offset (random-int 0 50))
+	(n (random-int 3 50)))
+    (values `#(,=>sma-close ,offset ,n)
+	    (+ offset n))))
+(defun random=>sma-close-strategy-1 ()
+  (let ((offset (random-int 0 50))
+	(n (random-int 3 50)))
+    (values `#(,=>sma-close-strategy-1 ,offset ,n)
+	    (+ offset n 1))))
+(defun random=>sma-close-strategy-2 ()
+  (let ((offset (random-int 0 50))
+	(n-short-sma (random-int 3 50))
+	(n-long-sma (random-int 3 50)))
+    (values `#(,=>sma-close-strategy-2 ,offset ,n-short-sma ,n-long-sma)
+	    (+ offset n-short-sma n-long-sma 1))))
+(defun random=>wma-close ()
+  (let ((offset (random-int 0 50))
+	(n (random-int 3 50)))
+    (values `#(,=>wma-close ,offset ,n)
+	    (+ offset n))))
+(defun random=>ema-close ()
+  (let ((offset (random-int 0 50))
+	(n-sma (random-int 3 25))
+	(n-ema (random-int 3 25)))
+    (values `#(,=>ema-close ,offset ,n-sma ,n-ema)
+	    (+ offset n-sma n-ema))))
+(defun random=>macd-close ()
+  (let ((offset (random-int 0 50))
+	(n-short-sma (random-int 3 25))
+	(n-short-ema (random-int 3 25))
+	(n-long-sma (random-int 3 25))
+	(n-long-ema (random-int 3 25))
+	(n-signal (random-int 3 25)))
+    (values `#(,=>macd-close ,offset ,n-short-sma ,n-short-ema ,n-long-sma ,n-long-ema ,n-signal)
+	    (+ offset (* 2 (max n-short-sma n-short-ema n-long-sma n-long-ema)) n-signal))))
+(defun random=>rsi-close ()
+  (let ((offset (random-int 0 50))
+	(n (random-int 10 20)))
+    (values `#(,=>rsi-close ,offset ,n)
+	    (+ offset n))))
+(defun random=>high-height ()
+  (let ((offset (random-int 0 50)))
+    (values `#(,=>high-height ,offset)
+	    offset)))
+(defun random->low-height ()
+  (let ((offset (random-int 0 50)))
+    (values `#(,->low-height ,offset)
+	    offset)))
+(defun random->candle-height ()
+  (let ((offset (random-int 0 50)))
+    (values `#(,->candle-height ,offset)
+	    offset)))
+(defun random=>diff-close-frac ()
+  (let ((offset (random-int 0 50)))
+    (values `#(,=>diff-close-frac ,offset)
+	    offset)))
 
-    ;; transforming the heat hash-tables to alists and ordering them
-    (map (lm (ht)
-	   (setf (gethash ht :heat) (split-heatmap-y-z (sort-by-price (gethash ht :heat)))))
-         ht-data)
-    ht-data))
+(defun gen-random-perceptions (fns-count)
+  (let ((fns-bag `(,#'random=>sma-close
+		   ,#'random=>sma-close-strategy-1
+		   ,#'random=>sma-close-strategy-2
+		   ,#'random=>wma-close
+		   ,#'random=>ema-close
+		   ,#'random=>rsi-close
+		   ;; ,#'random=>macd-close
+		   ;; ,#'random=>high-height
+		   ;; ,#'random->low-height
+		   ;; ,#'random->candle-height
+		   ;; ,#'random->diff-close-frac
+		   ))
+	(max-lookbehind 0)
+	(perceptions))
+    (loop repeat fns-count
+	  collect (multiple-value-bind (perc lookbehind)
+		      (funcall (random-elt fns-bag))
+		    (when (> lookbehind max-lookbehind)
+		      (setf max-lookbehind lookbehind))
+		    (push perc perceptions)))
+    `((:perception-fns . ,(make-array (length perceptions) :initial-contents perceptions))
+      (:lookahead-count . ,(if omcom.omage:*random-lookahead-p*
+			       (random-int
+				omcom.omage:*random-lookahead-min*
+				omcom.omage:*random-lookahead-max*)
+			       omcom.omage:*lookahead*))
+      (:lookbehind-count . ,(+ 10 max-lookbehind)))))
+;; (gen-random-perceptions 30)
 
-(defun diffs (rates &optional (bid? t))
-  "Calculates the difference between two close prices."
-  (let* ((bid-or-ask (if bid? :close-bid :close-ask))
-         (closes (map (lm (rate)
-                        (rest (assoc bid-or-ask rate))
-                        )
-                      rates)))
-    (map (lm (price delta)
-           (cons price delta))
-         (rest closes)
-         (map (lm (c1 c2)
-                (- c2 c1))
-              closes
-              (rest closes))
-         )))
-
-(defun ts-partition (n ts)
-  (remove nil
-          (pmaplist (lm (ts)
-                     (if (>= (length ts) n)
-                         (take n ts)))
-                    ts)))
-
-(defun fibos (diffs levels)
-  "Returns fibos from bigger to smaller."
-  (sort (flatten (map (lm (diff)
-                        (let ((price (first diff))
-                              (delta (rest diff)))
-                          (map (lm (level)
-                                 (+ price (* delta level)))
-                               levels)
-                          ))
-                      diffs))
-        #'>))
-
-(defun sort-by-price (table)
-  (sort (alexandria:hash-table-alist table) #'< :key #'car))
-
-(defun hash-table-alist (table)
-  "Returns an association list containing the keys and values of hash table TABLE."
-  (let ((alist nil))
-    (maphash (lambda (k v)
-               (push (cons k v) alist))
-             table)
-    alist))
-
-(defun heatmap-values (fibos area-position)
-  ;; area-size is in pips
-  (let* ((max-area (ceiling (first fibos) area-position))
-         (min-area (floor (last fibos) area-position))
-         (n (- max-area min-area))
-         (ht (make-hash-table :test #'equal)))
-    ;; initializing the hash-table
-
-    (map (lm (price)
-           (setf (gethash ht (* price area-position)) 0)
-           )
-         (iota n :start min-area :step 1))
-    (map (lm (fib weight)
-           (if (gethash ht (* (floor fib area-position) area-position))
-               (incf (gethash ht (* (floor fib area-position) area-position)) (float (/ 1 weight)))))
-         fibos
-	 (iota (length fibos) :start (length fibos) :step -1))
-    ht))
-
-(defun split-heatmap-y-z (alist)
-  #H(:y (map (lm (elt) (car elt)) alist)
-	:z (map (lm (elt) (cdr elt)) alist)))
-
-;; (defparameter *ratio* 1/5)
-(defparameter *data-count* 63)
-(defparameter *partition-size* 63)
-;; (get-data :EUR_USD (get-rates :EUR_USD 1 :M5))
-
-(defun get-data (instrument rates &key (levels '(0.382 0.5 0.618 1 1.618)))
-  (let* ((partition-size *partition-size*)
-         (sample-size (- (length rates)
-                         partition-size))
-         
-         ;; (area-position (expt 10 1))
-         ;; (pip-position (expt 10 -4))
-
-         ;; (area-position (expt 10 -3))
-         (area-position (gethash *area-positions* instrument))
-         
-         ;; (ratio *ratio*)
-         )
-    (correct-heats
-     (let ((res (map (lm (fibs rate)
-                       (let ((ht (make-hash-table :test 'equal)))
-                         ;; (setf (gethash ht :rate) (cdar rate))
-                         (setf (gethash ht :open) (cdr (assoc :open-bid rate)))
-                         (setf (gethash ht :high) (cdr (assoc :high-bid rate)))
-                         (setf (gethash ht :low) (cdr (assoc :low-bid rate)))
-                         (setf (gethash ht :close) (cdr (assoc :close-bid rate)))
-                         
-                         ;; (setf (gethash ht :time) (cdadr rate))
-                         (setf (gethash ht :time) (cdr (assoc :time rate)))
-                         (setf (gethash ht :heat) fibs)
-                         ht)
-            
-                       ;; #H(:rate (cdar rate)
-                       ;;          :time (cdadr rate)
-                       ;;          :heat fibs)
-                       )
-                     (map (lm (diffs)
-                            (let ((fibos (fibos diffs levels)))
-                              (if fibos
-                                  (heatmap-values fibos area-position))
-                              )
-                            )
-                          (pmapcar #'diffs (ts-partition partition-size rates))
-                          )
-                     (subseq rates (- partition-size 1))
-                     )))
-       ;; (subseq res (- (length res) (round (* (length res) *ratio*))))
-       ;; (subseq res (- (length res) *data-count*))
-       ;; (cl:last res *data-count*)
-       res
-       )
-     area-position)))
-(org.tfeb.hax.memoize:memoize-function 'get-data)
+(defun gen-perception-fn (perception-fns)
+  (lambda (rates)
+    (loop for fn across perception-fns
+	  collect (apply #'funcall
+			 (defenum:nth-enum-tag (aref fn 0) 'perceptions)
+			 rates (coerce (subseq fn 1) 'list)))))
+;; (time (loop repeat 1000 do (funcall (gen-perception-fn #(#(0 0 10) #(0 1 10) #(1 0))) *rates*)))

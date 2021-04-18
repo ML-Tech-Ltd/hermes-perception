@@ -1,10 +1,10 @@
-(defpackage overmind-perception/tests/main
+(defpackage hermes-perception/tests/main
   (:use :cl
-        :overmind-perception
+        :hermes-perception
         :rove))
-(in-package :overmind-perception/tests/main)
+(in-package :hermes-perception/tests/main)
 
-;; NOTE: To run this test file, execute `(asdf:test-system :overmind-perception)' in your Lisp.
+;; NOTE: To run this test file, execute `(asdf:test-system :hermes-perception)' in your Lisp.
 
 (deftest test-target-1
   (testing "should (= 1 1) to be true"
