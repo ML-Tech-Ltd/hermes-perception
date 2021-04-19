@@ -3,7 +3,7 @@
   (:use :cl :alexandria)
   (:import-from #:defenum
 		#:defenum)
-  (:import-from #:omcom.utils
+  (:import-from #:hscom.utils
 		#:random-int)
   (:export #:=>diff-close
 	   #:=>diff-close-frac
@@ -21,19 +21,19 @@
 	   #:gen-random-perceptions
 	   #:gen-perception-fn
 	   )
-  (:nicknames :omper))
+  (:nicknames :hsper))
 (in-package :hermes-perception)
 
 (defun =>diff-close (rates offset)
   (let* ((lrates (length rates))
 	 (last-candle (nth (- lrates offset 1) rates))
 	 (penultimate-candle (nth (- lrates (1+ offset) 1) rates)))
-    (- (ominp.rates:->close last-candle)
-       (ominp.rates:->close penultimate-candle))))
+    (- (hsinp.rates:->close last-candle)
+       (hsinp.rates:->close penultimate-candle))))
 ;; (->diff-close *rates* 0)
 
 (defun =>diff-close-frac (rates offset)
-  (ominp.rates:->close-frac (nth (- (length rates) offset 1) rates)))
+  (hsinp.rates:->close-frac (nth (- (length rates) offset 1) rates)))
 ;; (=>diff-close-frac *rates* 10)
 
 (defun =>sma-close (rates offset n)
@@ -224,11 +224,11 @@
 		      (setf max-lookbehind lookbehind))
 		    (push perc perceptions)))
     `((:perception-fns . ,(make-array (length perceptions) :initial-contents perceptions))
-      (:lookahead-count . ,(if omcom.omage:*random-lookahead-p*
+      (:lookahead-count . ,(if hscom.hsage:*random-lookahead-p*
 			       (random-int
-				omcom.omage:*random-lookahead-min*
-				omcom.omage:*random-lookahead-max*)
-			       omcom.omage:*lookahead*))
+				hscom.hsage:*random-lookahead-min*
+				hscom.hsage:*random-lookahead-max*)
+			       hscom.hsage:*lookahead*))
       (:lookbehind-count . ,(+ 10 max-lookbehind)))))
 ;; (gen-random-perceptions 30)
 
