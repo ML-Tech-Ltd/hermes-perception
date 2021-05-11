@@ -5,6 +5,11 @@
 		#:defenum)
   (:import-from #:hscom.utils
 		#:random-int)
+  (:import-from #:hsinp.rates
+		#:->open
+		#:->close
+		#:->high
+		#:->low)
   (:export #:=>diff-close
 	   #:=>diff-close-frac
 	   #:=>sma-close
@@ -18,9 +23,31 @@
 	   #:=>high-height
 	   #:=>low-height
 	   #:=>candle-height
+	   #:fixed=>sma-close
+	   #:random=>sma-close
+	   #:fixed=>sma-close-strategy-1
+	   #:random=>sma-close-strategy-1
+	   #:fixed=>sma-close-strategy-2
+	   #:random=>sma-close-strategy-2
+	   #:fixed=>wma-close
+	   #:random=>wma-close
+	   #:fixed=>ema-close
+	   #:random=>ema-close
+	   #:fixed=>macd-close
+	   #:random=>macd-close
+	   #:fixed=>rsi-close
+	   #:random=>rsi-close
+	   #:fixed=>high-height
+	   #:random=>high-height
+	   #:fixed=>low-height
+	   #:random=>low-height
+	   #:fixed=>candle-height
+	   #:random=>candle-height
+	   #:fixed=>diff-close-frac
+	   #:random=>diff-close-frac
 	   #:gen-random-perceptions
 	   #:gen-perception-fn
-	   )
+	   #:get-perceptions)
   (:nicknames :hsper))
 (in-package :hermes-perception)
 
@@ -70,7 +97,7 @@
 
 (defun =>close (rates offset)
   (let* ((lrates (length rates)))
-    (rate-close (nth (- lrates offset 1) rates))))
+    (->close (nth (- lrates offset 1) rates))))
 ;; (->close *rates* 0)
 
 (defun =>ema-close (rates offset n-sma n-ema)
@@ -107,26 +134,26 @@
 (defun =>high-height (rates offset)
   (let* ((lrates (length rates))
 	 (last-candle (nth (- lrates offset 1) rates)))
-    (- (rate-high last-candle)
-       (if (> (rate-open last-candle)
-	      (rate-close last-candle))
-	   (rate-open last-candle)
-	   (rate-close last-candle)))))
+    (- (->high last-candle)
+       (if (> (->open last-candle)
+	      (->close last-candle))
+	   (->open last-candle)
+	   (->close last-candle)))))
 
 (defun =>low-height (rates offset)
   (let* ((lrates (length rates))
 	 (last-candle (nth (- lrates offset 1) rates)))
-    (- (if (> (rate-open last-candle)
-	      (rate-close last-candle))
-	   (rate-close last-candle)
-	   (rate-open last-candle))
-       (rate-low last-candle))))
+    (- (if (> (->open last-candle)
+	      (->close last-candle))
+	   (->close last-candle)
+	   (->open last-candle))
+       (->low last-candle))))
 
 (defun =>candle-height (rates offset)
   (let* ((lrates (length rates))
 	 (last-candle (nth (- lrates offset 1) rates)))
-    (abs (- (rate-close last-candle)
-	    (rate-open last-candle)))))
+    (abs (- (->close last-candle)
+	    (->open last-candle)))))
 
 (defenum perceptions
     (=>sma-close
@@ -140,37 +167,102 @@
      =>macd-close
      =>diff-close-frac
      =>high-height
-     ->low-height
-     ->candle-height
+     =>low-height
+     =>candle-height
      ))
+
+(defparameter *docstrings* (make-hash-table)
+  "We're documenting externally to DEFENUM because DEFENUM sadly doesn't support docstrings.")
+(progn
+  (setf (gethash '=>sma-close *docstrings*) "Simple Moving Average (SMA) applied to the =>CLOSE prices.")
+  (setf (gethash '=>wma-close *docstrings*)
+	"Weighted Moving Average (WMA) applied to the =>CLOSE prices.")
+  (setf (gethash '=>ema-close *docstrings*)
+	"Exponential Moving Average (EMA) applied to the =>CLOSE prices.")
+  (setf (gethash '=>rsi-close *docstrings*)
+	"Relative Strength Index (RSI) applied to the =>CLOSE prices.")
+  (setf (gethash '=>macd-close *docstrings*)
+	"Moving Average Convergence Divergence (MACD) applied to the =>CLOSE prices.")
+  (setf (gethash '=>diff-close-frac *docstrings*)
+	"Fractional Difference (fracdiff) applied to the =>CLOSE prices.")
+  (setf (gethash '=>high-height *docstrings*)
+	"Price difference between max(=>OPEN, =>CLOSE) and the =>HIGH price of a candle.")
+  (setf (gethash '=>low-height *docstrings*)
+	"Price difference between min(=>OPEN, =>CLOSE) and the =>LOW price of a candle.")
+  (setf (gethash '=>candle-height *docstrings*)
+	"Price difference between =>OPEN and =>CLOSE prices of a candle.")
+  (setf (gethash '=>sma-close-strategy-1 *docstrings*)
+	"Trading strategy involving one SMA. \
+A bullish signal is represented by the =>CLOSE price crossing an SMA from below. \
+A bearish signal is represented by the =>CLOSE price crossing an SMA from above.")
+  (setf (gethash '=>sma-close-strategy-2 *docstrings*)
+	"Trading strategy involving two SMAs. \
+A bullish signal is represented by a fast SMA crossing a slow SMA from below. \
+A bearish signal is represented by a fast SMA crossing a slow SMA from above.")
+  )
+
+(defun get-perceptions ()
+  (mapcar (lambda (tag-name)
+	    `((:name . ,(make-keyword tag-name))
+	      (:documentation . ,(gethash tag-name *docstrings*))
+	      (:id . ,(eval tag-name))))
+	  (defenum:tags (defenum:find-enum 'perceptions))))
+;; (get-perceptions)
+;; (hscom.utils:assoccess (first (get-perceptions)) :name)
+
+(defun fixed=>sma-close (offset n)
+  (values `#(,=>sma-close ,offset ,n)
+	  (+ offset n)))
+;; (fixed=>sma-close 5 10)
 
 (defun random=>sma-close ()
   (let ((offset (random-int 0 50))
 	(n (random-int 3 50)))
-    (values `#(,=>sma-close ,offset ,n)
-	    (+ offset n))))
+    (fixed=>sma-close offset n)))
+;; (random=>sma-close)
+
+(defun fixed=>sma-close-strategy-1 (offset n)
+  (values `#(,=>sma-close-strategy-1 ,offset ,n)
+	  (+ offset n 1)))
+
 (defun random=>sma-close-strategy-1 ()
   (let ((offset (random-int 0 50))
 	(n (random-int 3 50)))
-    (values `#(,=>sma-close-strategy-1 ,offset ,n)
-	    (+ offset n 1))))
+    (fixed=>sma-close-strategy-1 offset n)))
+
+(defun fixed=>sma-close-strategy-2 (offset n-short-sma n-long-sma)
+  (values `#(,=>sma-close-strategy-2 ,offset ,n-short-sma ,n-long-sma)
+	  (+ offset n-short-sma n-long-sma 1)))
+
 (defun random=>sma-close-strategy-2 ()
   (let ((offset (random-int 0 50))
 	(n-short-sma (random-int 3 50))
 	(n-long-sma (random-int 3 50)))
-    (values `#(,=>sma-close-strategy-2 ,offset ,n-short-sma ,n-long-sma)
-	    (+ offset n-short-sma n-long-sma 1))))
+    (fixed=>sma-close-strategy-2 offset n-short-sma n-long-sma)))
+
+(defun fixed=>wma-close (offset n)
+  (values `#(,=>wma-close ,offset ,n)
+	  (+ offset n)))
+
 (defun random=>wma-close ()
   (let ((offset (random-int 0 50))
 	(n (random-int 3 50)))
-    (values `#(,=>wma-close ,offset ,n)
-	    (+ offset n))))
+    (fixed=>wma-close offset n)))
+
+(defun fixed=>ema-close (offset n-sma n-ema)
+  (values `#(,=>ema-close ,offset ,n-sma ,n-ema)
+	  (+ offset n-sma n-ema)))
+
 (defun random=>ema-close ()
   (let ((offset (random-int 0 50))
 	(n-sma (random-int 3 25))
 	(n-ema (random-int 3 25)))
-    (values `#(,=>ema-close ,offset ,n-sma ,n-ema)
-	    (+ offset n-sma n-ema))))
+    (fixed=>ema-close offset n-sma n-ema)))
+
+(defun fixed=>macd-close (offset n-short-sma n-short-ema n-long-sma n-long-ema n-signal)
+  (values `#(,=>macd-close ,offset ,n-short-sma ,n-short-ema ,n-long-sma ,n-long-ema ,n-signal)
+	  (+ offset (* 2 (max n-short-sma n-short-ema n-long-sma n-long-ema)) n-signal)))
+
 (defun random=>macd-close ()
   (let ((offset (random-int 0 50))
 	(n-short-sma (random-int 3 25))
@@ -178,29 +270,48 @@
 	(n-long-sma (random-int 3 25))
 	(n-long-ema (random-int 3 25))
 	(n-signal (random-int 3 25)))
-    (values `#(,=>macd-close ,offset ,n-short-sma ,n-short-ema ,n-long-sma ,n-long-ema ,n-signal)
-	    (+ offset (* 2 (max n-short-sma n-short-ema n-long-sma n-long-ema)) n-signal))))
+    (fixed=>macd-close offset n-short-sma n-short-ema n-long-sma n-long-ema n-signal)))
+
+(defun fixed=>rsi-close (offset n)
+  (values `#(,=>rsi-close ,offset ,n)
+	  (+ offset n)))
+
 (defun random=>rsi-close ()
   (let ((offset (random-int 0 50))
 	(n (random-int 10 20)))
-    (values `#(,=>rsi-close ,offset ,n)
-	    (+ offset n))))
+    (fixed=>rsi-close offset n)))
+
+(defun fixed=>high-height (offset)
+  (values `#(,=>high-height ,offset)
+	  offset))
+
 (defun random=>high-height ()
   (let ((offset (random-int 0 50)))
-    (values `#(,=>high-height ,offset)
-	    offset)))
-(defun random->low-height ()
+    (fixed=>high-height offset)))
+
+(defun fixed=>low-height (offset)
+  (values `#(,=>low-height ,offset)
+	  offset))
+
+(defun random=>low-height ()
   (let ((offset (random-int 0 50)))
-    (values `#(,->low-height ,offset)
-	    offset)))
-(defun random->candle-height ()
+    (fixed=>low-height offset)))
+
+(defun fixed=>candle-height (offset)
+  (values `#(,=>candle-height ,offset)
+	  offset))
+
+(defun random=>candle-height ()
   (let ((offset (random-int 0 50)))
-    (values `#(,->candle-height ,offset)
-	    offset)))
+    (fixed=>candle-height offset)))
+
+(defun fixed=>diff-close-frac (offset)
+  (values `#(,=>diff-close-frac ,offset)
+	  offset))
+
 (defun random=>diff-close-frac ()
   (let ((offset (random-int 0 50)))
-    (values `#(,=>diff-close-frac ,offset)
-	    offset)))
+    (fixed=>diff-close-frac offset)))
 
 (defun gen-random-perceptions (fns-count)
   (let ((fns-bag `(,#'random=>sma-close
@@ -211,14 +322,14 @@
 		   ,#'random=>rsi-close
 		   ;; ,#'random=>macd-close
 		   ;; ,#'random=>high-height
-		   ;; ,#'random->low-height
-		   ;; ,#'random->candle-height
-		   ;; ,#'random->diff-close-frac
+		   ;; ,#'random=>low-height
+		   ;; ,#'random=>candle-height
+		   ;; ,#'random=>diff-close-frac
 		   ))
 	(max-lookbehind 0)
 	(perceptions))
     (loop repeat fns-count
-	  collect (multiple-value-bind (perc lookbehind)
+	  do (multiple-value-bind (perc lookbehind)
 		      (funcall (random-elt fns-bag))
 		    (when (> lookbehind max-lookbehind)
 		      (setf max-lookbehind lookbehind))
@@ -230,7 +341,7 @@
 				hscom.hsage:*random-lookahead-max*)
 			       hscom.hsage:*lookahead*))
       (:lookbehind-count . ,(+ 10 max-lookbehind)))))
-;; (gen-random-perceptions 30)
+;; (gen-random-perceptions 10)
 
 (defun gen-perception-fn (perception-fns)
   (lambda (rates)
