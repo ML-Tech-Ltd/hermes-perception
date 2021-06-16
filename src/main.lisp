@@ -5,7 +5,8 @@
 		#:defenum)
   (:import-from #:hscom.utils
 		#:random-int
-		#:assoccess)
+		#:assoccess
+		#:dbg)
   (:import-from #:hsinp.rates
 		#:->open
 		#:->close
@@ -198,9 +199,9 @@
 	  (+ offset n-short-sma n-long-sma 1)))
 
 (defun random=>sma-close-strategy-2 ()
-  (let ((offset (random-int 0 50))
-	(n-short-sma (random-int 3 50))
-	(n-long-sma (random-int 3 50)))
+  (let* ((offset (random-int 0 50))
+	 (n-short-sma (random-int 3 20))
+	 (n-long-sma (+ n-short-sma (random-int 3 20))))
     (fixed=>sma-close-strategy-2 offset n-short-sma n-long-sma)))
 
 (defun fixed=>wma-close (offset n)
@@ -278,25 +279,25 @@
 
 (defun gen-random-perceptions (fns-count)
   (let ((fns-bag `(,#'random=>sma-close
-		   ,#'random=>sma-close-strategy-1
-		   ,#'random=>sma-close-strategy-2
+		   ;; ,#'random=>sma-close-strategy-1
+		   ;; ,#'random=>sma-close-strategy-2
 		   ,#'random=>wma-close
 		   ,#'random=>ema-close
 		   ,#'random=>rsi-close
 		   ;; ,#'random=>macd-close
-		   ;; ,#'random=>high-height
-		   ;; ,#'random=>low-height
-		   ;; ,#'random=>candle-height
+		   ,#'random=>high-height
+		   ,#'random=>low-height
+		   ,#'random=>candle-height
 		   ;; ,#'random=>diff-close-frac
 		   ))
 	(max-lookbehind 0)
 	(perceptions))
     (loop repeat fns-count
 	  do (multiple-value-bind (perc lookbehind)
-		      (funcall (random-elt fns-bag))
-		    (when (> lookbehind max-lookbehind)
-		      (setf max-lookbehind lookbehind))
-		    (push perc perceptions)))
+		 (funcall (random-elt fns-bag))
+	       (when (> lookbehind max-lookbehind)
+		 (setf max-lookbehind lookbehind))
+	       (push perc perceptions)))
     `((:perception-fns . ,(make-array (length perceptions) :initial-contents perceptions))
       (:lookahead-count . ,(if hscom.hsage:*random-lookahead-p*
 			       (random-int
