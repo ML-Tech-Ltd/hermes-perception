@@ -161,6 +161,24 @@
 	    (t 0)))))
 ;; (=>strategy-rsi-stoch-macd *rates* 0 30 15 10 3 5 7 10 14 17)
 
+(defun swing (rates high-or-low entry-or-exit offset n)
+  "`entry-or-exit` can have one of two values, :entry or :exit.
+`high-or-low` can have one of two values, :high or :low."
+  (let* ((lrates (length rates))
+	 ;; We want to avoid the last price, thus we subtract 1 to the end of `subseq`.
+	 ;; The last price should never be a swing.
+	 (subrates (subseq rates (- lrates offset n) (- lrates 1 offset)))
+	 (kw (if (eq high-or-low :high)
+		 (if (eq entry-or-exit :entry)
+		     :high-ask
+		     :high-bid)
+		 (if (eq entry-or-exit :entry)
+		     :low-ask
+		     :low-bid))))
+    (loop for rate in subrates
+	  maximize (assoccess rate kw))))
+;; (swing *rates* :low :entry 0 20)
+
 (comment
  (loop for i from 0 below 100 do (format t "~a~%" (=>strategy-rsi-stoch-macd *rates* i
 										14
