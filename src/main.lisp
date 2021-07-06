@@ -10,9 +10,17 @@
 		#:dbg)
   (:import-from #:hsinp.rates
 		#:->open
+		#:->open-bid
+		#:->open-ask
 		#:->close
+		#:->close-bid
+		#:->close-ask
 		#:->high
-		#:->low)
+		#:->high-bid
+		#:->high-ask
+		#:->low
+		#:->low-bid
+		#:->low-ask)
   (:export #:=>diff-close
 	   #:=>diff-high
 	   #:=>diff-low
@@ -95,19 +103,23 @@
 
 (defun =>sma-close (rates offset n)
   (/ (loop for i below n
-	   summing (=>diff-close-frac rates (+ i offset)))
+	   summing (=>close rates (+ i offset)))
      n))
 
 (defun =>stochastic-oscillator-k (rates offset n-high n-low)
-  (let ((lowest-low (loop for i from 0 below n-low minimize (=>diff-low-frac rates (+ i offset))))
-	(highest-high (loop for i from 0 below n-high maximize (=>diff-high-frac rates (+ i offset))))
-	(close (=>diff-close-frac rates offset)))
+  (let ((lowest-low (loop for i from 0 below n-low minimize (=>low rates (+ i offset))))
+	(highest-high (loop for i from 0 below n-high maximize (=>high rates (+ i offset))))
+	(close (=>close rates offset)))
     (* 100 (/ (- close lowest-low)
 	      (- highest-high lowest-low)))))
 ;; (=>stochastic-oscillator-k *rates* 0 5 5)
 
 (comment
- (time (loop for i from 0 below 500 do (print (=>stochastic-oscillator-d *rates* i 10 20 1))))
+ (time (loop for i from 0 below 500 do (print (=>stochastic-oscillator-d *rates* i 5 5 3))))
+ (time (loop for i from 0 below 500 do (print (=>stochastic-oscillator-k *rates* i 5 5))))
+ (time (loop for i from 0 below 500 do (print (abs (- (=>stochastic-oscillator-k *rates* i 5 5)
+						 (=>stochastic-oscillator-d *rates* i 5 5 3))))))
+ (time (loop for i from 0 below 500 do (print (=>rsi-close *rates* i 14))))
  (time (loop for rate in *rates* do (when (not (>= (hsinp.rates:->high-frac rate) (hsinp.rates:->close-frac rate))) (format t "~a, ~a~%" (hsinp.rates:->high-frac rate) (hsinp.rates:->close-frac rate)))))
  )
 
@@ -117,18 +129,50 @@
 
 (defun =>strategy-rsi-stoch-macd (rates offset n-rsi n-high-stoch n-low-stoch n-d-stoch n-short-sma-macd n-short-ema-macd n-long-sma-macd n-long-ema-macd n-signal-macd)
   (let ((rsi (=>rsi-close rates offset n-rsi))
-	(stoch-k (=>stochastic-oscillator-k rates offset n-high-stoch n-low-stoch))
-	(stoch-d (=>stochastic-oscillator-d rates offset n-high-stoch n-low-stoch n-d-stoch))
-	(macd (=>macd-close rates offset n-short-sma-macd n-short-ema-macd n-long-sma-macd n-long-ema-macd n-signal-macd)))
+	(stoch-k (loop for i from 0
+		       do (let ((stoch (=>stochastic-oscillator-k rates (+ offset i) n-high-stoch n-low-stoch)))
+			    (if (> stoch 80)
+				(return :sell)
+				(when (< stoch 20)
+				  (return :buy))))))
+	(stoch-d (loop for i from 0
+		       do (let ((stoch (=>stochastic-oscillator-d rates (+ offset i) n-high-stoch n-low-stoch n-d-stoch)))
+			    (if (> stoch 80)
+				(return :sell)
+				(when (< stoch 20)
+				  (return :buy)))))))
     ;; rules
-    (cond ((and (< stoch-k 20)
-		(< stoch-d 20)
-		(> rsi 50))))
-    ))
+    (multiple-value-bind (macd signal)
+	(=>macd-close rates offset n-short-sma-macd n-short-ema-macd n-long-sma-macd n-long-ema-macd n-signal-macd)
+      (cond ((and (eq stoch-k :buy)
+		  (eq stoch-d :buy)
+		  (> rsi 50)
+		  ;; (< macd-1 signal-1)
+		  (> macd signal)
+		  )
+	     1)
+	    ((and (eq stoch-k :sell)
+		  (eq stoch-d :sell)
+		  (< rsi 50)
+		  ;; (> macd-1 signal-1)
+		  (< macd signal)
+		  )
+	     -1)
+	    (t 0)))))
+;; (=>strategy-rsi-stoch-macd *rates* 0 30 15 10 3 5 7 10 14 17)
+
+(comment
+ (loop for i from 0 below 100 do (format t "~a~%" (=>strategy-rsi-stoch-macd *rates* i
+										14
+										5
+										5
+										3
+										12 12 26 26 9)))
+ )
 
 (defun =>sma-close-strategy-1 (rates offset n)
-  (let ((close-0 (=>diff-close-frac rates offset))
-	(close-1 (=>diff-close-frac rates (1+ offset)))
+  (let ((close-0 (=>close rates offset))
+	(close-1 (=>close rates (1+ offset)))
 	(sma (=>sma-close rates offset n)))
     (if (or (and (< close-0 sma)
 		 (> close-1 sma))
@@ -150,37 +194,78 @@
   (/ (loop
        for i below n
        for j from n above 0
-       summing (* j (=>diff-close-frac rates (+ i offset))))
+       summing (* j (=>close rates (+ i offset))))
      (* n (1+ n) 1/2)))
+
+(defun =>close-ask (rates offset)
+  (let* ((lrates (length rates)))
+    (->close-ask (nth (- lrates offset 1) rates))))
+;; (=>close-ask *rates* 0)
+
+(defun =>close-bid (rates offset)
+  (let* ((lrates (length rates)))
+    (->close-bid (nth (- lrates offset 1) rates))))
+;; (=>close-bid *rates* 0)
 
 (defun =>close (rates offset)
   (let* ((lrates (length rates)))
     (->close (nth (- lrates offset 1) rates))))
 ;; (=>close *rates* 0)
 
+(defun =>high-ask (rates offset)
+  (let* ((lrates (length rates)))
+    (->high-ask (nth (- lrates offset 1) rates))))
+;; (=>high-ask *rates* 0)
+
+(defun =>high-bid (rates offset)
+  (let* ((lrates (length rates)))
+    (->high-bid (nth (- lrates offset 1) rates))))
+;; (=>high-bid *rates* 0)
+
 (defun =>high (rates offset)
   (let* ((lrates (length rates)))
     (->high (nth (- lrates offset 1) rates))))
 ;; (=>high *rates* 0)
+
+(defun =>low-ask (rates offset)
+  (let* ((lrates (length rates)))
+    (->low-ask (nth (- lrates offset 1) rates))))
+;; (=>low-ask *rates* 0)
+
+(defun =>low-bid (rates offset)
+  (let* ((lrates (length rates)))
+    (->low-bid (nth (- lrates offset 1) rates))))
+;; (=>low-bid *rates* 0)
 
 (defun =>low (rates offset)
   (let* ((lrates (length rates)))
     (->low (nth (- lrates offset 1) rates))))
 ;; (=>low *rates* 0)
 
+(defun =>open-ask (rates offset)
+  (let* ((lrates (length rates)))
+    (->open-ask (nth (- lrates offset 1) rates))))
+;; (=>open-ask *rates* 0)
+
+(defun =>open-bid (rates offset)
+  (let* ((lrates (length rates)))
+    (->open-bid (nth (- lrates offset 1) rates))))
+;; (=>open-bid *rates* 0)
+
 (defun =>open (rates offset)
   (let* ((lrates (length rates)))
     (->open (nth (- lrates offset 1) rates))))
 ;; (=>open *rates* 0)
 
-;; (defparameter *rates* (hsinp.rates::fracdiff (hsinp.rates::get-rates-random-count-big :AUD_USD :M15 10000)))
+;; (defparameter *rates* (hsinp.rates::fracdiff (hsinp.rates::get-rates-random-count-big :EUR_USD :M15 10000)))
 
 (defun =>ema-close (rates offset n-sma n-ema)
   (let ((smoothing (/ 2 (1+ n-ema)))
 	(ema (=>sma-close rates (+ offset n-ema) n-sma)))
     (loop for i from (1- n-ema) downto 1
-	  do (setf ema (+ ema (* smoothing (- (=>diff-close-frac rates (+ i offset)) ema)))))
+	  do (setf ema (+ ema (* smoothing (- (=>close rates (+ i offset)) ema)))))
     ema))
+;; (=>ema-close *rates* 0 12 26)
 
 (defun =>macd-close (rates offset n-short-sma n-short-ema n-long-sma n-long-ema n-signal)
   (let ((last-macd 0)
@@ -191,25 +276,25 @@
 		    (macd (- short-ema long-ema)))
 	       (incf signal macd)
 	       (setf last-macd macd)))
-    (values (- last-macd (/ signal n-signal))
-	    (/ signal n-signal)
-	    last-macd)))
+    (values last-macd ;; macd
+	    (/ signal n-signal) ;; signal
+	    (- last-macd (/ signal n-signal)) ;; histogram
+	    )))
 ;; (=>macd-close *rates* 4 10 20 30 40 5)
 
 (defun =>rsi-close (rates offset n)
   (let ((gain 0)
 	(loss 0))
     (loop for i from 0 below n
-	  do (let ((delta (=>diff-close rates (+ offset i)))
-		   (delta-frac (=>diff-close-frac rates (+ offset i))))
+	  do (let ((delta (=>diff-close rates (+ offset i))))
 	       (if (plusp delta)
-		   (incf gain delta-frac)
-		   (incf loss (abs delta-frac)))))
+		   (incf gain delta)
+		   (incf loss (abs delta)))))
     (if (= loss 0)
 	100
 	(let ((rs (/ (/ gain n) (/ loss n))))
 	  (- 100 (/ 100 (1+ rs)))))))
-;; (=>rsi-close *rates* 100 30)
+;; (=>rsi-close *rates* 30 30)
 
 (defun =>high-height (rates offset)
   (let* ((lrates (length rates))
