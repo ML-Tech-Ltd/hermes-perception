@@ -129,7 +129,7 @@
   (/ (loop for i from 1 to n-d summing (=>stochastic-oscillator-k rates (+ i offset) n-high n-low)) n-d))
 ;; (=>stochastic-oscillator-d *rates* 0 5 5 1)
 
-(defun swing (rates high-or-low entry-or-exit offset n)
+(defun swing (rates high-or-low entry-or-exit bullish-or-bearish offset n)
   "`entry-or-exit` can have one of two values, :entry or :exit.
 `high-or-low` can have one of two values, :high or :low."
   (let* ((lrates (length rates))
@@ -138,14 +138,25 @@
 	 (subrates (subseq rates (- lrates offset n) (- lrates 1 offset)))
 	 (kw (if (eq high-or-low :high)
 		 (if (eq entry-or-exit :entry)
-		     :high-ask
-		     :high-bid)
+		     (if (eq bullish-or-bearish :bullish)
+			 :high-ask
+			 :high-bid)
+		     (if (eq bullish-or-bearish :bullish)
+			 :high-bid
+			 :high-ask))
 		 (if (eq entry-or-exit :entry)
-		     :low-ask
-		     :low-bid))))
-    (loop for rate in subrates
-	  maximize (assoccess rate kw))))
-;; (swing *rates* :low :entry 0 20)
+		     (if (eq bullish-or-bearish :bullish)
+			 :low-ask
+			 :low-bid)
+		     (if (eq bullish-or-bearish :bullish)
+			 :low-bid
+			 :low-ask)))))
+    (if (eq high-or-low :high)
+	(loop for rate in subrates
+	      maximize (assoccess rate kw))
+	(loop for rate in subrates
+	      minimize (assoccess rate kw)))))
+;; (swing *rates* :low :entry :bullish 0 20)
 
 (defun =>strategy-rsi-stoch-macd (rates offset n-rsi n-high-stoch n-low-stoch n-d-stoch n-short-sma-macd n-short-ema-macd n-long-sma-macd n-long-ema-macd n-signal-macd)
   (let ((rsi (=>rsi-close rates offset n-rsi))
@@ -181,19 +192,25 @@
 	    (t 0)))))
 ;; (=>strategy-rsi-stoch-macd *rates* 0 30 15 10 3 5 7 10 14 17)
 
-(defun =>strategy-rsi-stoch-macd-exit (rates position-type)
-  "`position-type` can have one of two values, :bullish or :bearish.
+(defun =>strategy-rsi-stoch-macd-exit (rates bullish-or-bearish)
+  "`bullish-or-bearish` can have one of two values, :bullish or :bearish.
 
 Outputs:
 (values take-profit stop-loss)"
-  (let ((prev-swing (swing rates (if (eq position-type :bullish)
+  (let ((current-close (->close (last-elt rates)))
+	(prev-swing (swing rates (if (eq bullish-or-bearish :bullish)
 				     :low ;; our SL
 				     :high) ;; our SL
-			   :exit 0 20)))
+			   ;; If we're selling, then bid (or ask?)
+			   :exit bullish-or-bearish 0 20)))
     (values
-     (* 1.5 prev-swing)
-     prev-swing)))
-;; (=>strategy-rsi-stoch-macd-exit *rates* :bullish)
+     (if (eq bullish-or-bearish :bullish)
+	 (abs (* 1.5 (- current-close prev-swing)))
+	 (* -1 (abs (* 1.5 (- current-close prev-swing)))))
+     (if (eq bullish-or-bearish :bullish)
+	 (* -1 (abs (- current-close prev-swing)))
+	 (abs (- current-close prev-swing))))))
+;; (=>strategy-rsi-stoch-macd-exit *rates* :bearish)
 
 (comment
  (loop for i from 0 below 100 do (format t "~a~%" (=>strategy-rsi-stoch-macd *rates* i
