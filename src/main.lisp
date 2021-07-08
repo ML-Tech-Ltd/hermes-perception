@@ -29,7 +29,6 @@
 	   #:=>sma-close-strategy-1
 	   #:=>sma-close-strategy-2
 	   #:=>strategy-rsi-stoch-macd
-	   #:=>strategy-rsi-stoch-macd-exit
 	   #:=>wma-close
 	   #:=>close
 	   #:=>ema-close
@@ -181,28 +180,31 @@
 		  ;; (< macd-1 signal-1)
 		  (> macd signal)
 		  )
-	     1)
+	     ;; Buy.
+	     (=>strategy-rsi-stoch-macd-exit rates :bullish offset))
 	    ((and (eq stoch-k :sell)
 		  (eq stoch-d :sell)
 		  (< rsi 50)
 		  ;; (> macd-1 signal-1)
 		  (< macd signal)
 		  )
-	     -1)
-	    (t 0)))))
+	     ;; Sell.
+	     (=>strategy-rsi-stoch-macd-exit rates :bearish offset))
+	    ;; Don't do anything.
+	    (t (values 0 0))))))
 ;; (=>strategy-rsi-stoch-macd *rates* 0 30 15 10 3 5 7 10 14 17)
 
-(defun =>strategy-rsi-stoch-macd-exit (rates bullish-or-bearish)
+(defun =>strategy-rsi-stoch-macd-exit (rates bullish-or-bearish offset)
   "`bullish-or-bearish` can have one of two values, :bullish or :bearish.
 
 Outputs:
 (values take-profit stop-loss)"
-  (let ((current-close (->close (last-elt rates)))
+  (let ((current-close (=>close rates offset))
 	(prev-swing (swing rates (if (eq bullish-or-bearish :bullish)
 				     :low ;; our SL
 				     :high) ;; our SL
 			   ;; If we're selling, then bid (or ask?)
-			   :exit bullish-or-bearish 0 20)))
+			   :exit bullish-or-bearish offset 20)))
     (values
      (if (eq bullish-or-bearish :bullish)
 	 (abs (* 1.5 (- current-close prev-swing)))
@@ -210,15 +212,18 @@ Outputs:
      (if (eq bullish-or-bearish :bullish)
 	 (* -1 (abs (- current-close prev-swing)))
 	 (abs (- current-close prev-swing))))))
-;; (=>strategy-rsi-stoch-macd-exit *rates* :bearish)
+;; (=>strategy-rsi-stoch-macd-exit *rates* :bullish 10)
 
 (comment
- (loop for i from 0 below 100 do (format t "~a~%" (=>strategy-rsi-stoch-macd *rates* i
-										14
-										5
-										5
-										3
-										12 12 26 26 9)))
+ (loop for i from 0 below 100 do 
+   (multiple-value-bind (tp sl)
+       (=>strategy-rsi-stoch-macd *rates* i
+				  14
+				  5
+				  5
+				  3
+				  12 12 26 26 9)
+     (format t "TP: ~a, SL: ~a~%" tp sl)))
  )
 
 (defun =>sma-close-strategy-1 (rates offset n)
