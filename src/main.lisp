@@ -62,7 +62,8 @@
 	   #:gen-random-perceptions
 	   #:gen-perception-fn
 	   #:get-perceptions
-	   #:nth-perception)
+	   #:nth-perception
+	   #:get-human-strategies)
   (:nicknames :hsper))
 (in-package :hermes-perception)
 
@@ -158,6 +159,7 @@
 ;; (swing *rates* :low :entry :bullish 0 20)
 
 (defun =>strategy-rsi-stoch-macd (rates offset n-rsi n-high-stoch n-low-stoch n-d-stoch n-short-sma-macd n-short-ema-macd n-long-sma-macd n-long-ema-macd n-signal-macd)
+  "Outputs: TP, SL, Activation."
   (let ((rsi (=>rsi-close rates offset n-rsi))
 	(stoch-k (loop for i from 0
 		       do (let ((stoch (=>stochastic-oscillator-k rates (+ offset i) n-high-stoch n-low-stoch)))
@@ -191,14 +193,14 @@
 	     ;; Sell.
 	     (=>strategy-rsi-stoch-macd-exit rates :bearish offset))
 	    ;; Don't do anything.
-	    (t (values 0 0))))))
+	    (t (values 0 0 0))))))
 ;; (=>strategy-rsi-stoch-macd *rates* 0 30 15 10 3 5 7 10 14 17)
 
 (defun =>strategy-rsi-stoch-macd-exit (rates bullish-or-bearish offset)
   "`bullish-or-bearish` can have one of two values, :bullish or :bearish.
 
 Outputs:
-(values take-profit stop-loss)"
+(values take-profit stop-loss activation)"
   (let ((current-close (=>close rates offset))
 	(prev-swing (swing rates (if (eq bullish-or-bearish :bullish)
 				     :low ;; our SL
@@ -211,19 +213,21 @@ Outputs:
 	 (* -1 (abs (* 1.5 (- current-close prev-swing)))))
      (if (eq bullish-or-bearish :bullish)
 	 (* -1 (abs (- current-close prev-swing)))
-	 (abs (- current-close prev-swing))))))
+	 (abs (- current-close prev-swing)))
+     ;; Activation.
+     1)))
 ;; (=>strategy-rsi-stoch-macd-exit *rates* :bullish 10)
 
 (comment
  (loop for i from 0 below 100 do 
-   (multiple-value-bind (tp sl)
+   (multiple-value-bind (tp sl activation)
        (=>strategy-rsi-stoch-macd *rates* i
 				  14
 				  5
 				  5
 				  3
 				  12 12 26 26 9)
-     (format t "TP: ~a, SL: ~a~%" tp sl)))
+     (format t "TP: ~a, SL: ~a, activation: ~a~%" tp sl activation)))
  )
 
 (defun =>sma-close-strategy-1 (rates offset n)
@@ -616,3 +620,10 @@ Outputs:
 	  (defenum:tags (defenum:find-enum 'perceptions))))
 ;; (get-perceptions)
 ;; (hscom.utils:assoccess (first (get-perceptions)) :params)
+
+(defun get-human-strategies ()
+  `(((:model . ,(lambda (input-dataset)
+		  (=>strategy-rsi-stoch-macd input-dataset 0 14 5 5 3 12 12 26 26 9)))
+     (:lookbehind-count . 100)
+     (:label "rsi-stoch-macd"))))
+;; (get-human-strategies)
