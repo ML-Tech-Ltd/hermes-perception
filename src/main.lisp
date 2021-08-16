@@ -63,7 +63,8 @@
 	   #:gen-perception-fn
 	   #:get-perceptions
 	   #:nth-perception
-	   #:get-human-strategies)
+	   #:get-human-strategies
+	   #:get-perceptions-count)
   (:nicknames :hsper))
 (in-package :hermes-perception)
 
@@ -397,7 +398,7 @@ Outputs:
      ))
 
 (defun fixed=>sma-close (offset n)
-  (values `#(,=>sma-close ,offset ,n)
+  (values `(,=>sma-close ,offset ,n)
 	  (+ offset n)))
 ;; (fixed=>sma-close 5 10)
 
@@ -408,7 +409,7 @@ Outputs:
 ;; (random=>sma-close)
 
 (defun fixed=>sma-close-strategy-1 (offset n)
-  (values `#(,=>sma-close-strategy-1 ,offset ,n)
+  (values `(,=>sma-close-strategy-1 ,offset ,n)
 	  (+ offset n 1)))
 
 (defun random=>sma-close-strategy-1 ()
@@ -417,7 +418,7 @@ Outputs:
     (fixed=>sma-close-strategy-1 offset n)))
 
 (defun fixed=>sma-close-strategy-2 (offset n-short-sma n-long-sma)
-  (values `#(,=>sma-close-strategy-2 ,offset ,n-short-sma ,n-long-sma)
+  (values `(,=>sma-close-strategy-2 ,offset ,n-short-sma ,n-long-sma)
 	  (+ offset n-short-sma n-long-sma 1)))
 
 (defun random=>sma-close-strategy-2 ()
@@ -427,7 +428,7 @@ Outputs:
     (fixed=>sma-close-strategy-2 offset n-short-sma n-long-sma)))
 
 (defun fixed=>wma-close (offset n)
-  (values `#(,=>wma-close ,offset ,n)
+  (values `(,=>wma-close ,offset ,n)
 	  (+ offset n)))
 
 (defun random=>wma-close ()
@@ -436,7 +437,7 @@ Outputs:
     (fixed=>wma-close offset n)))
 
 (defun fixed=>ema-close (offset n-sma n-ema)
-  (values `#(,=>ema-close ,offset ,n-sma ,n-ema)
+  (values `(,=>ema-close ,offset ,n-sma ,n-ema)
 	  (+ offset n-sma n-ema)))
 
 (defun random=>ema-close ()
@@ -446,7 +447,7 @@ Outputs:
     (fixed=>ema-close offset n-sma n-ema)))
 
 (defun fixed=>macd-close (offset n-short-sma n-short-ema n-long-sma n-long-ema n-signal)
-  (values `#(,=>macd-close ,offset ,n-short-sma ,n-short-ema ,n-long-sma ,n-long-ema ,n-signal)
+  (values `(,=>macd-close ,offset ,n-short-sma ,n-short-ema ,n-long-sma ,n-long-ema ,n-signal)
 	  (+ offset (* 2 (max n-short-sma n-short-ema n-long-sma n-long-ema)) n-signal)))
 
 (defun random=>macd-close ()
@@ -459,7 +460,7 @@ Outputs:
     (fixed=>macd-close offset n-short-sma n-short-ema n-long-sma n-long-ema n-signal)))
 
 (defun fixed=>rsi-close (offset n)
-  (values `#(,=>rsi-close ,offset ,n)
+  (values `(,=>rsi-close ,offset ,n)
 	  (+ offset n)))
 
 (defun random=>rsi-close ()
@@ -468,7 +469,7 @@ Outputs:
     (fixed=>rsi-close offset n)))
 
 (defun fixed=>high-height (offset)
-  (values `#(,=>high-height ,offset)
+  (values `(,=>high-height ,offset)
 	  offset))
 
 (defun random=>high-height ()
@@ -476,7 +477,7 @@ Outputs:
     (fixed=>high-height offset)))
 
 (defun fixed=>low-height (offset)
-  (values `#(,=>low-height ,offset)
+  (values `(,=>low-height ,offset)
 	  offset))
 
 (defun random=>low-height ()
@@ -484,7 +485,7 @@ Outputs:
     (fixed=>low-height offset)))
 
 (defun fixed=>candle-height (offset)
-  (values `#(,=>candle-height ,offset)
+  (values `(,=>candle-height ,offset)
 	  offset))
 
 (defun random=>candle-height ()
@@ -492,7 +493,7 @@ Outputs:
     (fixed=>candle-height offset)))
 
 (defun fixed=>diff-close-frac (offset)
-  (values `#(,=>diff-close-frac ,offset)
+  (values `(,=>diff-close-frac ,offset)
 	  offset))
 
 (defun random=>diff-close-frac ()
@@ -519,23 +520,43 @@ Outputs:
 		 (funcall (random-elt fns-bag))
 	       (when (> lookbehind max-lookbehind)
 		 (setf max-lookbehind lookbehind))
-	       (push perc perceptions)))
-    `((:perception-fns . ,(make-array (length perceptions) :initial-contents perceptions))
+	       (push (append (list (length perc)) perc) perceptions)))
+    `((:perception-fns . ,(let ((perceptions (flatten perceptions)))
+			    (make-array (length perceptions) :initial-contents perceptions)))
       (:lookahead-count . ,(if hscom.hsage:*random-lookahead-p*
 			       (random-int
 				hscom.hsage:*random-lookahead-min*
 				hscom.hsage:*random-lookahead-max*)
 			       hscom.hsage:*lookahead*))
+      (:perceptions-count . ,fns-count)
       (:lookbehind-count . ,(+ 10 max-lookbehind)))))
 ;; (gen-random-perceptions 10)
 
 (defun gen-perception-fn (perception-fns)
   (lambda (rates)
-    (loop for fn across perception-fns
-	  collect (apply #'funcall
-			 (defenum:nth-enum-tag (aref fn 0) 'perceptions)
-			 rates (coerce (subseq fn 1) 'list)))))
-;; (time (loop repeat 1000 do (funcall (gen-perception-fn #(#(0 0 10) #(0 1 10) #(1 0))) *rates*)))
+    (loop with i = 0
+	  while (< i (length perception-fns))
+	  collect (let* ((n (aref perception-fns i))
+			 (fn (subseq perception-fns
+				     (+ i 1)
+				     (+ n i 1))))
+		    (prog1
+			(apply #'funcall
+			       (defenum:nth-enum-tag (aref fn 0) 'perceptions)
+			       rates (coerce (subseq fn 1) 'list))
+		      (incf i (1+ n)))))))
+;; (funcall (gen-perception-fn (assoccess (gen-random-perceptions 10) :perception-fns)) *rates*)
+;; (time (loop repeat 1000 do (funcall (gen-perception-fn '((0 0 10) (0 1 10) (1 0))) *rates*)))
+
+(defun get-perceptions-count (perception-fns)
+  (let ((count 0))
+    (loop with i = 0
+	  while (< i (length perception-fns))
+	  do (let* ((n ))
+	       (incf count)
+	       (incf i (1+ (aref perception-fns i)))))
+    count))
+;; (time (get-perceptions-count (assoccess (gen-random-perceptions 131) :perception-fns)))
 
 (defun nth-perception (tag)
   (defenum:nth-enum-tag tag 'perceptions))
