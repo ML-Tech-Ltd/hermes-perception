@@ -8,6 +8,8 @@
 		#:assoccess
 		#:comment
 		#:dbg)
+  (:import-from #:hscom.hsage
+		#:*instruments*)
   (:import-from #:hsinp.rates
 		#:->open
 		#:->open-bid
@@ -645,12 +647,14 @@ Outputs:
 (defun get-human-strategies ()
   `(((:model . ,(lambda (input-dataset arguments)
 		  (apply #'=>strategy-rsi-stoch-macd input-dataset arguments)))
+     (:fn . #'=>strategy-rsi-stoch-macd)
      (:parameters . (offset n-rsi n-high-stoch n-low-stoch n-d-stoch n-short-sma-macd n-short-ema-macd n-long-sma-macd n-long-ema-macd n-signal-macd))
      (:args-default . (0 14 5 5 3 12 12 26 26 9))
-     (:args-ranges . ((0 10) (14 20) (5 10) (5 10) (3 10) (12 30) (12 30) (26 40) (26 40) (9 20)))
-     (:lookbehind-count . 200)
-     (:label . "human.rsi-stoch-macd")
+     ;; (:args-ranges . ((0 10) (14 20) (5 10) (5 10) (3 10) (12 30) (12 30) (26 40) (26 40) (9 20)))
+     (:args-ranges . ((0 20) (5 20) (5 20) (5 20) (3 20) (10 40) (10 40) (10 40) (10 40) (5 30)))
+     (:lookbehind-count . 500)
+     (:name . "rsi-stoch-macd")
      (:types . (:rsi :stoch :macd))
-     (:instruments . (:EUR_USD))
+     (:instruments . ,*instruments*)
      (:timeframes . (:M15)))))
 ;; (get-human-strategies)
