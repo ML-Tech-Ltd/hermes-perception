@@ -655,7 +655,7 @@ Outputs:
      (:args-ranges . ((0 20) (5 20) (5 20) (5 20) (3 20) (10 40) (10 40) (10 40) (10 40) (5 30)))
      (:lookbehind-count . ,*test-size-human-strategies-signals*)
      (:name . "rsi-stoch-macd")
-     (:types . (:rsi :stoch :macd))
+     (:indicators . (:rsi :stoch :macd))
      (:instruments . ,*instruments*)
      (:timeframes . (:M15)))))
 ;; (get-human-strategies)
