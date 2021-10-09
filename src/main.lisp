@@ -650,7 +650,7 @@ Outputs:
 		  (apply #'=>strategy-rsi-stoch-macd input-dataset arguments)))
      (:fn . #'=>strategy-rsi-stoch-macd)
      (:parameters . (offset n-rsi n-high-stoch n-low-stoch n-d-stoch n-short-sma-macd n-short-ema-macd n-long-sma-macd n-long-ema-macd n-signal-macd))
-     (:args-default . (0 14 5 5 3 12 12 26 26 9))
+     (:args-default . (0 14 14 3 3 12 12 26 26 9))
      ;; (:args-ranges . ((0 10) (14 20) (5 10) (5 10) (3 10) (12 30) (12 30) (26 40) (26 40) (9 20)))
      (:args-ranges . ((0 20) (5 20) (5 20) (5 20) (3 20) (10 40) (10 40) (10 40) (10 40) (5 30)))
      (:lookbehind-count . ,*test-size-human-strategies-signals*)
