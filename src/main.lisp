@@ -178,26 +178,31 @@
 				(when (< stoch 20)
 				  (return :buy)))))))
     ;; rules
-    (multiple-value-bind (macd signal)
-	(=>macd-close rates offset n-short-sma-macd n-short-ema-macd n-long-sma-macd n-long-ema-macd n-signal-macd)
-      (cond ((and (eq stoch-k :buy)
-		  (eq stoch-d :buy)
-		  (> rsi 50)
-		  ;; (< macd-1 signal-1)
-		  (> macd signal)
-		  )
-	     ;; Buy.
-	     (=>strategy-rsi-stoch-macd-exit rates :bullish offset))
-	    ((and (eq stoch-k :sell)
-		  (eq stoch-d :sell)
-		  (< rsi 50)
-		  ;; (> macd-1 signal-1)
-		  (< macd signal)
-		  )
-	     ;; Sell.
-	     (=>strategy-rsi-stoch-macd-exit rates :bearish offset))
-	    ;; Don't do anything.
-	    (t (values 0 0 0))))))
+    (multiple-value-bind (macd-1 signal-1)
+	;; We calculate t-1 MACD and Signal.
+	(=>macd-close rates (1+ offset) n-short-sma-macd n-short-ema-macd n-long-sma-macd n-long-ema-macd n-signal-macd)
+      (multiple-value-bind (macd signal)
+	  ;; We calculate t-0 MACD and Signal.
+	  (=>macd-close rates offset n-short-sma-macd n-short-ema-macd n-long-sma-macd n-long-ema-macd n-signal-macd)
+	(cond ((and (eq stoch-k :buy)
+		    (eq stoch-d :buy)
+		    (> rsi 50)
+		    (< macd-1 signal-1)
+		    (> macd signal)
+		    )
+	       ;; Buy.
+	       (=>strategy-rsi-stoch-macd-exit rates :bullish offset))
+	      ((and (eq stoch-k :sell)
+		    (eq stoch-d :sell)
+		    (< rsi 50)
+		    (> macd-1 signal-1)
+		    (< macd signal)
+		    )
+	       ;; Sell.
+	       (=>strategy-rsi-stoch-macd-exit rates :bearish offset))
+	      ;; Don't do anything.
+	      (t (values 0 0 0)))))
+    ))
 ;; (=>strategy-rsi-stoch-macd *rates* 0 30 15 10 3 5 7 10 14 17)
 
 (defun =>strategy-rsi-stoch-macd-exit (rates bullish-or-bearish offset)
@@ -223,16 +228,16 @@ Outputs:
 ;; (=>strategy-rsi-stoch-macd-exit *rates* :bullish 10)
 
 (comment
- (loop for i from 0 below 100 do 
-   (multiple-value-bind (tp sl activation)
-       (=>strategy-rsi-stoch-macd *rates* i
-				  14
-				  5
-				  5
-				  3
-				  12 12 26 26 9)
-     (format t "TP: ~a, SL: ~a, activation: ~a~%" tp sl activation)))
- )
+  (loop for i from 0 below 9000 do 
+    (multiple-value-bind (tp sl activation)
+	(=>strategy-rsi-stoch-macd (subseq *rates* 0) i
+				   17
+				   10
+				   9
+				   8
+				   16 33 19 32 26)
+      (format t "TP: ~a, SL: ~a, activation: ~a~%" tp sl activation)))
+  )
 
 (defun =>sma-close-strategy-1 (rates offset n)
   (let ((close-0 (=>close rates offset))
