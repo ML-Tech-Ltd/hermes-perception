@@ -1,6 +1,8 @@
 ;; (ql:quickload :hermes-perception)
 (defpackage hermes-perception
-  (:use :cl :alexandria)
+  (:use :cl :ciel)
+  (:import-from #:hu.dwim.def
+                #:def)
   (:import-from #:defenum
                 #:defenum)
   (:import-from #:hscom.utils
@@ -71,7 +73,11 @@
   (:nicknames :hsper))
 (in-package :hermes-perception)
 
-(defun =>diff-close (rates offset)
+;; (defparameter *rates* (hsinp.rates::fracdiff (hsinp.rates::get-rates-random-count-big :AUD_USD :M15 10000)))
+;; (defparameter *rates* (hsinp.rates::get-rates-random-count-big :AUD_USD :M15 10000))
+;; (defparameter *rates* (hsinp.rates::get-rates-count-big :AUD_USD :M15 1000))
+
+(def (function o) =>diff-close (rates offset)
   (let* ((lrates (length rates))
          (last-candle (nth (- lrates offset 1) rates))
          (penultimate-candle (nth (- lrates (1+ offset) 1) rates)))
@@ -79,7 +85,7 @@
        (hsinp.rates:->close penultimate-candle))))
 ;; (=>diff-close *rates* 0)
 
-(defun =>diff-high (rates offset)
+(def (function o) =>diff-high (rates offset)
   (let* ((lrates (length rates))
          (last-candle (nth (- lrates offset 1) rates))
          (penultimate-candle (nth (- lrates (1+ offset) 1) rates)))
@@ -87,7 +93,7 @@
        (hsinp.rates:->high penultimate-candle))))
 ;; (=>diff-high *rates* 0)
 
-(defun =>diff-low (rates offset)
+(def (function o) =>diff-low (rates offset)
   (let* ((lrates (length rates))
          (last-candle (nth (- lrates offset 1) rates))
          (penultimate-candle (nth (- lrates (1+ offset) 1) rates)))
@@ -95,40 +101,44 @@
        (hsinp.rates:->low penultimate-candle))))
 ;; (=>diff-low *rates* 0)
 
-(defun =>diff-close-frac (rates offset)
+(def (function o) =>diff-close-frac (rates offset)
   (hsinp.rates:->close-frac (nth (- (length rates) offset 1) rates)))
 ;; (=>diff-close-frac *rates* 10)
 
-(defun =>diff-high-frac (rates offset)
+(def (function o) =>diff-high-frac (rates offset)
   (hsinp.rates:->high-frac (nth (- (length rates) offset 1) rates)))
 ;; (=>diff-high-frac *rates* 10)
 
-(defun =>diff-low-frac (rates offset)
+(def (function o) =>diff-low-frac (rates offset)
   (hsinp.rates:->low-frac (nth (- (length rates) offset 1) rates)))
 ;; (=>diff-low-frac *rates* 10)
 
-(defun =>sma-close (rates offset n)
+(def (function o) =>sma-close (rates offset n)
   (/ (loop for i below n
            summing (=>close rates (+ i offset)))
      n))
+;; (fare-memoization:memoize '=>sma-close)
 
-(defun =>stochastic-oscillator (rates offset n-largest)
+(def (function o) =>stochastic-oscillator (rates offset n-largest)
   (let ((lowest-low (loop for i from 0 below n-largest minimize (=>low rates (+ i offset))))
         (highest-high (loop for i from 0 below n-largest maximize (=>high rates (+ i offset))))
         (close (=>close rates offset)))
     (* 100 (/ (- close lowest-low)
               (- highest-high lowest-low)))))
+;; (fare-memoization:memoize '=>stochastic-oscillator)
 ;; (=>stochastic-oscillator *rates* 0 14)
 
-(defun =>stochastic-oscillator-k (rates offset n-largest n-k)
+(def (function o) =>stochastic-oscillator-k (rates offset n-largest n-k)
   (/ (loop for i from 1 to n-k summing (=>stochastic-oscillator rates (+ i offset) n-largest)) n-k))
+;; (fare-memoization:memoize '=>stochastic-oscillator-k)
 ;; (=>stochastic-oscillator-k *rates* 0 14 3)
 
-(defun =>stochastic-oscillator-d (rates offset n-largest n-k n-d)
+(def (function o) =>stochastic-oscillator-d (rates offset n-largest n-k n-d)
   (/ (loop for i from 1 to n-d summing (=>stochastic-oscillator-k rates (+ i offset) n-largest n-k)) n-d))
+;; (fare-memoization:memoize '=>stochastic-oscillator-d)
 ;; (=>stochastic-oscillator-d *rates* 0 14 3 3)
 
-(defun swing (rates high-or-low entry-or-exit bullish-or-bearish offset n)
+(def (function o) swing (rates high-or-low entry-or-exit bullish-or-bearish offset n)
   "`entry-or-exit` can have one of two values, :entry or :exit.
 `high-or-low` can have one of two values, :high or :low."
   (let* ((lrates (length rates))
@@ -157,7 +167,7 @@
               minimize (assoccess rate kw)))))
 ;; (swing *rates* :low :entry :bullish 0 20)
 
-(defun =>strategy-rsi-stoch-macd (rates offset n-rsi n-largest n-k-stoch n-d-stoch n-short-sma-macd n-short-ema-macd n-long-sma-macd n-long-ema-macd n-signal-macd)
+(def (function o) =>strategy-rsi-stoch-macd (rates offset n-rsi n-largest n-k-stoch n-d-stoch n-short-sma-macd n-short-ema-macd n-long-sma-macd n-long-ema-macd n-signal-macd)
   "Outputs: TP, SL, Activation."
   (let ((rsi (=>rsi-close rates offset n-rsi))
         (stoch-k (loop for i from 0
@@ -200,7 +210,7 @@
     ))
 ;; (=>strategy-rsi-stoch-macd *rates* 0 30 15 10 3 5 7 10 14 17)
 
-(defun =>strategy-rsi-stoch-macd-exit (rates bullish-or-bearish offset)
+(def (function o) =>strategy-rsi-stoch-macd-exit (rates bullish-or-bearish offset)
   "`bullish-or-bearish` can have one of two values, :bullish or :bearish.
 
 Outputs:
@@ -222,19 +232,7 @@ Outputs:
      1)))
 ;; (=>strategy-rsi-stoch-macd-exit *rates* :bullish 10)
 
-(comment
- (loop for i from 0 below 9000 do
-          (multiple-value-bind (tp sl activation)
-              (=>strategy-rsi-stoch-macd (subseq *rates* 0) i
-                                         17
-                                         10
-                                         9
-                                         8
-                                         16 33 19 32 26)
-            (format t "TP: ~a, SL: ~a, activation: ~a~%" tp sl activation)))
- )
-
-(defun =>sma-close-strategy-1 (rates offset n)
+(def (function o) =>sma-close-strategy-1 (rates offset n)
   (let ((close-0 (=>close rates offset))
         (close-1 (=>close rates (1+ offset)))
         (sma (=>sma-close rates offset n)))
@@ -244,7 +242,7 @@ Outputs:
                  (< close-1 sma)))
         (- sma close-0)
         0)))
-(defun =>sma-close-strategy-2 (rates offset n-short-sma n-long-sma)
+(def (function o) =>sma-close-strategy-2 (rates offset n-short-sma n-long-sma)
   (let ((short-sma-0 (=>sma-close rates offset (min n-short-sma n-long-sma)))
         (short-sma-1 (=>sma-close rates (1+ offset) (min n-short-sma n-long-sma)))
         (long-sma (=>sma-close rates offset (max n-short-sma n-long-sma))))
@@ -254,84 +252,85 @@ Outputs:
                  (< short-sma-1 long-sma)))
         (- short-sma-0 long-sma)
         0)))
-(defun =>wma-close (rates offset n)
+
+(def (function o) =>wma-close (rates offset n)
   (/ (loop
        for i below n
        for j from n above 0
        summing (* j (=>close rates (+ i offset))))
      (* n (1+ n) 1/2)))
+;; (fare-memoization:memoize '=>wma-close)
 
-(defun =>close-ask (rates offset)
+(def (function o) =>close-ask (rates offset)
   (let* ((lrates (length rates)))
     (->close-ask (nth (- lrates offset 1) rates))))
 ;; (=>close-ask *rates* 0)
 
-(defun =>close-bid (rates offset)
+(def (function o) =>close-bid (rates offset)
   (let* ((lrates (length rates)))
     (->close-bid (nth (- lrates offset 1) rates))))
 ;; (=>close-bid *rates* 0)
 
-(defun =>close (rates offset)
+(def (function o) =>close (rates offset)
   (let* ((lrates (length rates)))
     (->close (nth (- lrates offset 1) rates))))
 ;; (=>close *rates* 0)
 
-(defun =>high-ask (rates offset)
+(def (function o) =>high-ask (rates offset)
   (let* ((lrates (length rates)))
     (->high-ask (nth (- lrates offset 1) rates))))
 ;; (=>high-ask *rates* 0)
 
-(defun =>high-bid (rates offset)
+(def (function o) =>high-bid (rates offset)
   (let* ((lrates (length rates)))
     (->high-bid (nth (- lrates offset 1) rates))))
 ;; (=>high-bid *rates* 0)
 
-(defun =>high (rates offset)
+(def (function o) =>high (rates offset)
   (let* ((lrates (length rates)))
     (->high (nth (- lrates offset 1) rates))))
 ;; (=>high *rates* 0)
 
-(defun =>low-ask (rates offset)
+(def (function o) =>low-ask (rates offset)
   (let* ((lrates (length rates)))
     (->low-ask (nth (- lrates offset 1) rates))))
 ;; (=>low-ask *rates* 0)
 
-(defun =>low-bid (rates offset)
+(def (function o) =>low-bid (rates offset)
   (let* ((lrates (length rates)))
     (->low-bid (nth (- lrates offset 1) rates))))
 ;; (=>low-bid *rates* 0)
 
-(defun =>low (rates offset)
+(def (function o) =>low (rates offset)
   (let* ((lrates (length rates)))
     (->low (nth (- lrates offset 1) rates))))
 ;; (=>low *rates* 0)
 
-(defun =>open-ask (rates offset)
+(def (function o) =>open-ask (rates offset)
   (let* ((lrates (length rates)))
     (->open-ask (nth (- lrates offset 1) rates))))
 ;; (=>open-ask *rates* 0)
 
-(defun =>open-bid (rates offset)
+(def (function o) =>open-bid (rates offset)
   (let* ((lrates (length rates)))
     (->open-bid (nth (- lrates offset 1) rates))))
 ;; (=>open-bid *rates* 0)
 
-(defun =>open (rates offset)
+(def (function o) =>open (rates offset)
   (let* ((lrates (length rates)))
     (->open (nth (- lrates offset 1) rates))))
 ;; (=>open *rates* 0)
 
-;; (defparameter *rates* (hsinp.rates::fracdiff (hsinp.rates::get-rates-random-count-big :EUR_USD :M15 10000)))
-
-(defun =>ema-close (rates offset n-sma n-ema)
+(def (function o) =>ema-close (rates offset n-sma n-ema)
   (let ((smoothing (/ 2 (1+ n-ema)))
         (ema (=>sma-close rates (+ offset n-ema) n-sma)))
     (loop for i from (1- n-ema) downto 1
           do (setf ema (+ ema (* smoothing (- (=>close rates (+ i offset)) ema)))))
     ema))
+;; (fare-memoization:memoize '=>ema-close)
 ;; (=>ema-close *rates* 0 12 26)
 
-(defun =>macd-close (rates offset n-short-sma n-short-ema n-long-sma n-long-ema n-signal)
+(def (function o) =>macd-close (rates offset n-short-sma n-short-ema n-long-sma n-long-ema n-signal)
   (let ((last-macd 0)
         (signal 0))
     (loop for off from (1- n-signal) downto 0
@@ -344,9 +343,10 @@ Outputs:
             (/ signal n-signal) ;; signal
             (- last-macd (/ signal n-signal)) ;; histogram
             )))
+;; (fare-memoization:memoize '=>macd-close)
 ;; (=>macd-close *rates* 4 10 20 30 40 5)
 
-(defun =>rsi-close (rates offset n)
+(def (function o) =>rsi-close (rates offset n)
   (let ((gain 0)
         (loss 0))
     (loop for i from 0 below n
@@ -358,9 +358,10 @@ Outputs:
         100
         (let ((rs (/ (/ gain n) (/ loss n))))
           (- 100 (/ 100 (1+ rs)))))))
+;; (fare-memoization:memoize '=>rsi-close)
 ;; (=>rsi-close *rates* 30 30)
 
-(defun =>high-height (rates offset)
+(def (function o) =>high-height (rates offset)
   (let* ((lrates (length rates))
          (last-candle (nth (- lrates offset 1) rates)))
     (- (->high last-candle)
@@ -368,21 +369,24 @@ Outputs:
               (->close last-candle))
            (->open last-candle)
            (->close last-candle)))))
+;; (fare-memoization:memoize '=>high-height)
 
-(defun =>low-height (rates offset)
+(def (function o) =>low-height (rates offset)
   (let* ((lrates (length rates))
          (last-candle (nth (- lrates offset 1) rates)))
     (- (if (> (->open last-candle)
               (->close last-candle))
            (->close last-candle)
            (->open last-candle))
-       (->low last-candle))))
+        (->low last-candle))))
+;; (fare-memoization:memoize '=>low-height)
 
-(defun =>candle-height (rates offset)
+(def (function o) =>candle-height (rates offset)
   (let* ((lrates (length rates))
          (last-candle (nth (- lrates offset 1) rates)))
     (abs (- (->close last-candle)
-            (->open last-candle)))))
+             (->open last-candle)))))
+;; (fare-memoization:memoize '=>candle-height)
 
 (defenum perceptions
   (=>sma-close
@@ -400,60 +404,60 @@ Outputs:
    =>candle-height
    ))
 
-(defun fixed=>sma-close (offset n)
+(def (function o) fixed=>sma-close (offset n)
   (values `(,=>sma-close ,offset ,n)
           (+ offset n)))
 ;; (fixed=>sma-close 5 10)
 
-(defun random=>sma-close ()
+(def (function o) random=>sma-close ()
   (let ((offset (random-int 0 50))
         (n (random-int 3 50)))
     (fixed=>sma-close offset n)))
 ;; (random=>sma-close)
 
-(defun fixed=>sma-close-strategy-1 (offset n)
+(def (function o) fixed=>sma-close-strategy-1 (offset n)
   (values `(,=>sma-close-strategy-1 ,offset ,n)
           (+ offset n 1)))
 
-(defun random=>sma-close-strategy-1 ()
+(def (function o) random=>sma-close-strategy-1 ()
   (let ((offset (random-int 0 50))
         (n (random-int 3 50)))
     (fixed=>sma-close-strategy-1 offset n)))
 
-(defun fixed=>sma-close-strategy-2 (offset n-short-sma n-long-sma)
+(def (function o) fixed=>sma-close-strategy-2 (offset n-short-sma n-long-sma)
   (values `(,=>sma-close-strategy-2 ,offset ,n-short-sma ,n-long-sma)
           (+ offset n-short-sma n-long-sma 1)))
 
-(defun random=>sma-close-strategy-2 ()
+(def (function o) random=>sma-close-strategy-2 ()
   (let* ((offset (random-int 0 50))
          (n-short-sma (random-int 3 20))
          (n-long-sma (+ n-short-sma (random-int 3 20))))
     (fixed=>sma-close-strategy-2 offset n-short-sma n-long-sma)))
 
-(defun fixed=>wma-close (offset n)
+(def (function o) fixed=>wma-close (offset n)
   (values `(,=>wma-close ,offset ,n)
           (+ offset n)))
 
-(defun random=>wma-close ()
+(def (function o) random=>wma-close ()
   (let ((offset (random-int 0 50))
         (n (random-int 3 50)))
     (fixed=>wma-close offset n)))
 
-(defun fixed=>ema-close (offset n-sma n-ema)
+(def (function o) fixed=>ema-close (offset n-sma n-ema)
   (values `(,=>ema-close ,offset ,n-sma ,n-ema)
           (+ offset n-sma n-ema)))
 
-(defun random=>ema-close ()
+(def (function o) random=>ema-close ()
   (let ((offset (random-int 0 50))
         (n-sma (random-int 3 25))
         (n-ema (random-int 3 25)))
     (fixed=>ema-close offset n-sma n-ema)))
 
-(defun fixed=>macd-close (offset n-short-sma n-short-ema n-long-sma n-long-ema n-signal)
+(def (function o) fixed=>macd-close (offset n-short-sma n-short-ema n-long-sma n-long-ema n-signal)
   (values `(,=>macd-close ,offset ,n-short-sma ,n-short-ema ,n-long-sma ,n-long-ema ,n-signal)
           (+ offset (* 2 (max n-short-sma n-short-ema n-long-sma n-long-ema)) n-signal)))
 
-(defun random=>macd-close ()
+(def (function o) random=>macd-close ()
   (let ((offset (random-int 0 50))
         (n-short-sma (random-int 3 25))
         (n-short-ema (random-int 3 25))
@@ -462,48 +466,48 @@ Outputs:
         (n-signal (random-int 3 25)))
     (fixed=>macd-close offset n-short-sma n-short-ema n-long-sma n-long-ema n-signal)))
 
-(defun fixed=>rsi-close (offset n)
+(def (function o) fixed=>rsi-close (offset n)
   (values `(,=>rsi-close ,offset ,n)
           (+ offset n)))
 
-(defun random=>rsi-close ()
+(def (function o) random=>rsi-close ()
   (let ((offset (random-int 0 50))
         (n (random-int 10 20)))
     (fixed=>rsi-close offset n)))
 
-(defun fixed=>high-height (offset)
+(def (function o) fixed=>high-height (offset)
   (values `(,=>high-height ,offset)
           offset))
 
-(defun random=>high-height ()
+(def (function o) random=>high-height ()
   (let ((offset (random-int 0 50)))
     (fixed=>high-height offset)))
 
-(defun fixed=>low-height (offset)
+(def (function o) fixed=>low-height (offset)
   (values `(,=>low-height ,offset)
           offset))
 
-(defun random=>low-height ()
+(def (function o) random=>low-height ()
   (let ((offset (random-int 0 50)))
     (fixed=>low-height offset)))
 
-(defun fixed=>candle-height (offset)
+(def (function o) fixed=>candle-height (offset)
   (values `(,=>candle-height ,offset)
           offset))
 
-(defun random=>candle-height ()
+(def (function o) random=>candle-height ()
   (let ((offset (random-int 0 50)))
     (fixed=>candle-height offset)))
 
-(defun fixed=>diff-close-frac (offset)
+(def (function o) fixed=>diff-close-frac (offset)
   (values `(,=>diff-close-frac ,offset)
           offset))
 
-(defun random=>diff-close-frac ()
+(def (function o) random=>diff-close-frac ()
   (let ((offset (random-int 0 50)))
     (fixed=>diff-close-frac offset)))
 
-(defun gen-random-perceptions (fns-count)
+(def (function o) gen-random-perceptions (fns-count)
   (let ((fns-bag `(,#'random=>sma-close
                    ;; ,#'random=>sma-close-strategy-1
                    ;; ,#'random=>sma-close-strategy-2
@@ -535,7 +539,7 @@ Outputs:
       (:lookbehind-count . ,(+ 10 max-lookbehind)))))
 ;; (gen-random-perceptions 10)
 
-(defun gen-perception-fn (perception-fns)
+(def (function o) gen-perception-fn (perception-fns)
   (lambda (rates)
     (loop with i = 0
           while (< i (length perception-fns))
@@ -551,7 +555,7 @@ Outputs:
 ;; (funcall (gen-perception-fn (assoccess (gen-random-perceptions 10) :perception-fns)) *rates*)
 ;; (time (loop repeat 1000 do (funcall (gen-perception-fn '((0 0 10) (0 1 10) (1 0))) *rates*)))
 
-(defun get-perceptions-count (perception-fns)
+(def (function o) get-perceptions-count (perception-fns)
   (let ((count 0))
     (loop with i = 0
           while (< i (length perception-fns))
@@ -561,7 +565,7 @@ Outputs:
     count))
 ;; (time (get-perceptions-count (assoccess (gen-random-perceptions 131) :perception-fns)))
 
-(defun nth-perception (tag)
+(def (function o) nth-perception (tag)
   (defenum:nth-enum-tag tag 'perceptions))
 ;; (nth-perception 0)
 
@@ -634,7 +638,7 @@ Outputs:
                       ((:name . offset) (:default . 0) (:documentation . ,offset-doc))))
           (:array-fn . ,#'fixed=>sma-close-strategy-2))))
 
-(defun get-perceptions ()
+(def (function o) get-perceptions ()
   (mapcar (lambda (tag-name)
             `((:id . ,(eval tag-name))
               (:name . ,(make-keyword tag-name))
@@ -645,7 +649,7 @@ Outputs:
 ;; (get-perceptions)
 ;; (hscom.utils:assoccess (first (get-perceptions)) :params)
 
-(defun get-human-strategies ()
+(def (function o) get-human-strategies ()
   `(((:model . ,(lambda (input-dataset arguments)
                   (apply #'=>strategy-rsi-stoch-macd input-dataset arguments)))
      (:fn . #'=>strategy-rsi-stoch-macd)
@@ -659,3 +663,34 @@ Outputs:
      (:instruments . ,*instruments*)
      (:timeframes . (:M15)))))
 ;; (get-human-strategies)
+
+(comment
+  (loop for i from 0 below 9000 do
+          (multiple-value-bind (tp sl activation)
+              (=>strategy-rsi-stoch-macd (subseq *rates* 0) i
+                                         14
+                                         14
+                                         3
+                                         3
+                                         12 12 26 26 9)
+            (format t "TP: ~a, SL: ~a, activation: ~a~%" tp sl activation)
+            )))
+
+(comment
+ (loop for i in *rates* do (print (assoccess i :close-bid)))
+  (time (loop for i from 0 below 500 do (format t "~a ~a ~a~%"
+                                                (assoccess (nth (- (length *rates*) i 1) *rates*) :time)
+                                                (assoccess (nth (- (length *rates*) i 1) *rates*) :close-bid)
+                                                (=>stochastic-oscillator-k *rates* i 14 14))))
+  )
+
+(comment
+  (time (loop for i from 0 below 500 do (print (=>stochastic-oscillator-d *rates* i 14 3 3))))
+  (time (loop for i from 0 below 500 do (print (=>stochastic-oscillator-k *rates* i 14 3))))
+  (time (loop for i from 0 below 500 do (print (abs (- (=>stochastic-oscillator-k *rates* i 14 3)
+                                                        (=>stochastic-oscillator-d *rates* i 14 3 3))))))
+  (time (loop for i from 0 below 500 do (print (=>rsi-close *rates* i 14))))
+  (time (loop for i from 0 below 500 do (print (=>macd-close *rates* i 12 12 26 26 9))))
+  
+  (time (loop for rate in *rates* do (when (not (>= (hsinp.rates:->high-frac rate) (hsinp.rates:->close-frac rate))) (format t "~a, ~a~%" (hsinp.rates:->high-frac rate) (hsinp.rates:->close-frac rate)))))
+  )

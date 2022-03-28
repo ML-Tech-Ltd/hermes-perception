@@ -2,8 +2,10 @@
   :version "0.1.0"
   :author ""
   :license ""
-  :depends-on (:alexandria
+  :depends-on (:ciel
+               :hu.dwim.def
 	       :defenum
+               :fare-memoization
 	       :hermes-input)
   :components ((:module "src"
                 :components
@@ -17,8 +19,8 @@
 (defsystem "hermes-perception/tests"
   :author ""
   :license ""
-  :depends-on ("hermes-perception"
-               "rove")
+  :depends-on ("rove"
+               "hermes-perception")
   :components ((:module "tests"
                 :components
                 ((:file "main"))))
