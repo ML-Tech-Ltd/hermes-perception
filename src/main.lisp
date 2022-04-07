@@ -12,7 +12,7 @@
                 #:dbg)
   (:import-from #:hscom.hsage
                 #:*instruments*
-                #:*test-size-human-strategies-signals*)
+                #:*lookbehind*)
   (:import-from #:hsinp.rates
                 #:->open
                 #:->open-bid
@@ -26,10 +26,7 @@
                 #:->low
                 #:->low-bid
                 #:->low-ask)
-  (:export #:=>diff-close
-           #:=>diff-high
-           #:=>diff-low
-           #:=>diff-close-frac
+  (:export #:=>diff-close-frac
            #:=>sma-close
            #:=>sma-close-strategy-1
            #:=>sma-close-strategy-2
@@ -69,7 +66,8 @@
            #:get-perceptions
            #:nth-perception
            #:get-human-strategies
-           #:get-perceptions-count)
+           #:get-perceptions-count
+           )
   (:nicknames :hsper))
 (in-package :hermes-perception)
 
@@ -77,7 +75,7 @@
 ;; (defparameter *rates* (hsinp.rates::get-rates-random-count-big :AUD_USD :M15 10000))
 ;; (defparameter *rates* (hsinp.rates::get-rates-count-big :AUD_USD :M15 1000))
 
-(def (function o) =>diff-close (rates offset)
+(def (function oe) =>diff-close (rates offset)
   (let* ((lrates (length rates))
          (last-candle (nth (- lrates offset 1) rates))
          (penultimate-candle (nth (- lrates (1+ offset) 1) rates)))
@@ -85,7 +83,7 @@
        (hsinp.rates:->close penultimate-candle))))
 ;; (=>diff-close *rates* 0)
 
-(def (function o) =>diff-high (rates offset)
+(def (function oe) =>diff-high (rates offset)
   (let* ((lrates (length rates))
          (last-candle (nth (- lrates offset 1) rates))
          (penultimate-candle (nth (- lrates (1+ offset) 1) rates)))
@@ -93,7 +91,7 @@
        (hsinp.rates:->high penultimate-candle))))
 ;; (=>diff-high *rates* 0)
 
-(def (function o) =>diff-low (rates offset)
+(def (function oe) =>diff-low (rates offset)
   (let* ((lrates (length rates))
          (last-candle (nth (- lrates offset 1) rates))
          (penultimate-candle (nth (- lrates (1+ offset) 1) rates)))
@@ -657,7 +655,7 @@ Outputs:
      (:args-default . (0 14 14 3 3 12 12 26 26 9))
      (:args-ranges . ((0 3) (11 16) (11 16) (2 5) (2 5) (10 14) (10 14) (24 28) (24 28) (7 11)))
      ;; (:args-ranges . ((0 20) (5 20) (5 20) (3 10) (3 10) (10 40) (10 40) (10 40) (10 40) (5 30)))
-     (:lookbehind-count . ,*test-size-human-strategies-signals*)
+     (:lookbehind-count . ,*lookbehind*)
      (:name . "rsi-stoch-macd")
      (:indicators . (:rsi :stoch :macd))
      (:instruments . ,*instruments*)
