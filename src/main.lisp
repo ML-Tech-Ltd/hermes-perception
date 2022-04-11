@@ -387,9 +387,9 @@ Outputs:
 ;; (fare-memoization:memoize '=>candle-height)
 
 (defenum perceptions
-  (=>sma-close
-   =>sma-close-strategy-1
+  (=>sma-close-strategy-1
    =>sma-close-strategy-2
+   =>sma-close
    =>wma-close
    =>ema-close
    =>rsi-close
@@ -400,6 +400,9 @@ Outputs:
    =>high-height
    =>low-height
    =>candle-height
+   =>diff-close
+   =>diff-high
+   =>diff-low
    ))
 
 (def (function o) fixed=>sma-close (offset n)
@@ -408,7 +411,7 @@ Outputs:
 ;; (fixed=>sma-close 5 10)
 
 (def (function o) random=>sma-close ()
-  (let ((offset (random-int 0 50))
+  (let ((offset (random-int 0 20))
         (n (random-int 3 50)))
     (fixed=>sma-close offset n)))
 ;; (random=>sma-close)
@@ -418,7 +421,7 @@ Outputs:
           (+ offset n 1)))
 
 (def (function o) random=>sma-close-strategy-1 ()
-  (let ((offset (random-int 0 50))
+  (let ((offset (random-int 0 20))
         (n (random-int 3 50)))
     (fixed=>sma-close-strategy-1 offset n)))
 
@@ -427,7 +430,7 @@ Outputs:
           (+ offset n-short-sma n-long-sma 1)))
 
 (def (function o) random=>sma-close-strategy-2 ()
-  (let* ((offset (random-int 0 50))
+  (let* ((offset (random-int 0 20))
          (n-short-sma (random-int 3 20))
          (n-long-sma (+ n-short-sma (random-int 3 20))))
     (fixed=>sma-close-strategy-2 offset n-short-sma n-long-sma)))
@@ -437,7 +440,7 @@ Outputs:
           (+ offset n)))
 
 (def (function o) random=>wma-close ()
-  (let ((offset (random-int 0 50))
+  (let ((offset (random-int 0 20))
         (n (random-int 3 50)))
     (fixed=>wma-close offset n)))
 
@@ -446,7 +449,7 @@ Outputs:
           (+ offset n-sma n-ema)))
 
 (def (function o) random=>ema-close ()
-  (let ((offset (random-int 0 50))
+  (let ((offset (random-int 0 20))
         (n-sma (random-int 3 25))
         (n-ema (random-int 3 25)))
     (fixed=>ema-close offset n-sma n-ema)))
@@ -456,7 +459,7 @@ Outputs:
           (+ offset (* 2 (max n-short-sma n-short-ema n-long-sma n-long-ema)) n-signal)))
 
 (def (function o) random=>macd-close ()
-  (let ((offset (random-int 0 50))
+  (let ((offset (random-int 0 20))
         (n-short-sma (random-int 3 25))
         (n-short-ema (random-int 3 25))
         (n-long-sma (random-int 3 25))
@@ -469,7 +472,7 @@ Outputs:
           (+ offset n)))
 
 (def (function o) random=>rsi-close ()
-  (let ((offset (random-int 0 50))
+  (let ((offset (random-int 0 20))
         (n (random-int 10 20)))
     (fixed=>rsi-close offset n)))
 
@@ -478,7 +481,7 @@ Outputs:
           offset))
 
 (def (function o) random=>high-height ()
-  (let ((offset (random-int 0 50)))
+  (let ((offset (random-int 0 20)))
     (fixed=>high-height offset)))
 
 (def (function o) fixed=>low-height (offset)
@@ -486,7 +489,7 @@ Outputs:
           offset))
 
 (def (function o) random=>low-height ()
-  (let ((offset (random-int 0 50)))
+  (let ((offset (random-int 0 20)))
     (fixed=>low-height offset)))
 
 (def (function o) fixed=>candle-height (offset)
@@ -494,28 +497,55 @@ Outputs:
           offset))
 
 (def (function o) random=>candle-height ()
-  (let ((offset (random-int 0 50)))
+  (let ((offset (random-int 0 20)))
     (fixed=>candle-height offset)))
+
+(def (function oe) fixed=>diff-close (offset)
+  (values `(,=>diff-close ,offset)
+          offset))
+
+(def (function oe) random=>diff-close ()
+  (let ((offset (random-int 0 20)))
+    (fixed=>diff-close offset)))
+
+(def (function oe) fixed=>diff-low (offset)
+  (values `(,=>diff-low ,offset)
+          offset))
+
+(def (function oe) random=>diff-low ()
+  (let ((offset (random-int 0 20)))
+    (fixed=>diff-low offset)))
+
+(def (function oe) fixed=>diff-high (offset)
+  (values `(,=>diff-high ,offset)
+          offset))
+
+(def (function oe) random=>diff-high ()
+  (let ((offset (random-int 0 20)))
+    (fixed=>diff-high offset)))
 
 (def (function o) fixed=>diff-close-frac (offset)
   (values `(,=>diff-close-frac ,offset)
           offset))
 
 (def (function o) random=>diff-close-frac ()
-  (let ((offset (random-int 0 50)))
+  (let ((offset (random-int 0 20)))
     (fixed=>diff-close-frac offset)))
 
 (def (function o) gen-random-perceptions (fns-count)
-  (let ((fns-bag `(,#'random=>sma-close
+  (let ((fns-bag `(;; ,#'random=>sma-close
                    ;; ,#'random=>sma-close-strategy-1
                    ;; ,#'random=>sma-close-strategy-2
-                   ,#'random=>wma-close
-                   ,#'random=>ema-close
-                   ,#'random=>rsi-close
+                   ;; ,#'random=>wma-close
+                   ;; ,#'random=>ema-close
+                   ;; ,#'random=>rsi-close
                    ;; ,#'random=>macd-close
                    ,#'random=>high-height
                    ,#'random=>low-height
                    ,#'random=>candle-height
+                   ,#'random=>diff-high
+                   ,#'random=>diff-low
+                   ,#'random=>diff-close
                    ;; ,#'random=>diff-close-frac
                    ))
         (max-lookbehind 0)
