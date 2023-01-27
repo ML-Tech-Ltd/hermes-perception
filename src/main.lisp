@@ -10,9 +10,10 @@
                 #:assoccess
                 #:comment
                 #:dbg)
-  (:import-from #:hscom.hsage
-                #:*instruments*
-                #:*lookbehind*)
+  (:import-from #:hscom.config
+                #:cfg<
+                #:cfg>
+                #:cfg>>)
   (:import-from #:hsinp.rates
                 #:->open
                 #:->open-bid
@@ -537,11 +538,11 @@ Outputs:
                (push (append (list (length perc)) perc) perceptions)))
     `((:perception-fns . ,(let ((perceptions (flatten perceptions)))
                             (make-array (length perceptions) :initial-contents perceptions)))
-      (:lookahead-count . ,(if hscom.hsage:*random-lookahead-p*
+      (:lookahead-count . ,(if (cfg>> :hsage :random-lookahead)
                                (random-int
-                                hscom.hsage:*random-lookahead-min*
-                                hscom.hsage:*random-lookahead-max*)
-                               hscom.hsage:*lookahead*))
+                                (cfg>> :hsage :random-lookahead-min)
+                                (cfg>> :hsage :random-lookahead-max))
+                               (cfg>> :hsage :random-lookahead)))
       (:perceptions-count . ,fns-count)
       (:lookbehind-count . ,(+ 10 max-lookbehind)))))
 ;; (gen-random-perceptions 10)
@@ -665,9 +666,9 @@ Outputs:
      (:args-default . (0 14 14 3 3 12 12 26 26 9))
      (:args-ranges . ((0 3) (11 16) (11 16) (2 5) (2 5) (10 14) (10 14) (24 28) (24 28) (7 11)))
      ;; (:args-ranges . ((0 20) (5 20) (5 20) (3 10) (3 10) (10 40) (10 40) (10 40) (10 40) (5 30)))
-     (:lookbehind-count . ,*lookbehind*)
+     (:lookbehind-count . ,(cfg>> :hsage :lookbehind))
      (:name . "rsi-stoch-macd")
      (:indicators . (:rsi :stoch :macd))
-     (:instruments . ,*instruments*)
+     (:instruments . ,(cfg>> :hsage :instruments))
      (:timeframes . (:M15)))))
 ;; (get-human-strategies)
